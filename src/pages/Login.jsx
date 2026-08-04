@@ -30,7 +30,7 @@ const registerSchema = z
   })
 
 const HIGHLIGHTS = [
-  { icon: CalendarCheck, text: 'Reservá en menos de un minuto' },
+  { icon: CalendarCheck, text: 'Reservá en cuatro pasos' },
   { icon: Layers, text: 'Seguí las sesiones de tus paquetes' },
   { icon: ShieldCheck, text: 'Confirmá o cancelá cuando quieras' },
 ]
@@ -47,7 +47,7 @@ export default function Login() {
           className="pointer-events-none absolute -right-24 top-1/4 h-96 w-96 rounded-full bg-primary-800/40 blur-3xl"
         />
         <Link to="/" className="relative w-fit rounded-lg">
-          <Logo subtitle="Agenda para tus clientes" tone="light" />
+          <Logo subtitle="Portal de citas" tone="light" />
         </Link>
 
         <div className="relative">
@@ -81,7 +81,7 @@ export default function Login() {
           </Link>
 
           <div className="mb-6 lg:hidden">
-            <Logo subtitle="Agenda para tus clientes" />
+            <Logo subtitle="Portal de citas" />
           </div>
 
           <div
@@ -131,7 +131,7 @@ function LoginForm() {
   const onSubmit = async (values) => {
     try {
       await login(values)
-      toast.success('¡Bienvenida de vuelta!')
+      toast.success('¡Hola de nuevo!')
       navigate('/dashboard', { replace: true })
     } catch (err) {
       setError('root', { message: err.message })

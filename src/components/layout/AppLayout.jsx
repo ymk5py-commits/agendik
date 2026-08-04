@@ -55,7 +55,7 @@ export default function AppLayout({ children }) {
       <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/90 backdrop-blur">
         <div className="container-app flex h-16 items-center justify-between gap-4">
           <NavLink to="/dashboard" className="shrink-0 rounded-lg" aria-label="Agendik, ir al inicio">
-            <Logo subtitle={tenant?.businessName || 'Portal del cliente'} />
+            <Logo subtitle={tenant?.businessName || 'Portal de citas'} />
           </NavLink>
 
           <nav className="hidden items-center gap-1 md:flex" aria-label="Navegación principal">

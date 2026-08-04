@@ -36,7 +36,7 @@ export default function AppointmentAction() {
       <header className="border-b border-sand-200 bg-white">
         <div className="container-app flex h-16 items-center">
           <Link to="/" className="rounded-lg">
-            <Logo subtitle="Portal del cliente" />
+            <Logo subtitle="Portal de citas" />
           </Link>
         </div>
       </header>

@@ -59,7 +59,7 @@ export default function Landing() {
     <div className="min-h-dvh bg-sand-50">
       <header className="border-b border-sand-200 bg-white">
         <div className="container-app flex h-16 items-center justify-between">
-          <Logo subtitle="Agenda para tus clientes" />
+          <Logo subtitle="Portal de citas" />
           <Link to="/ingresar" className="btn-primary">
             Ingresar
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -93,13 +93,13 @@ export default function Landing() {
               </h1>
 
               <p className="mt-5 max-w-xl text-base leading-relaxed text-primary-100 sm:text-lg">
-                Agendik es el portal donde tus clientes reservan solos, a cualquier hora, sin ocuparte
-                el teléfono. Ellos ven horarios reales; vos ves la agenda llena.
+                Reservá tu próxima cita cuando quieras, sin llamar ni esperar respuesta.
+                Acá ves los horarios que tu profesional tiene libres de verdad.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link to="/ingresar" className="btn-accent px-6 py-3 text-base">
-                  Entrar a mi cuenta
+                  Ingresar a mi cuenta
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
                 <a href="#como-funciona" className="btn px-6 py-3 text-base text-white ring-1 ring-inset ring-primary-700 hover:bg-primary-900">
@@ -109,7 +109,7 @@ export default function Landing() {
 
               {isDemoMode && (
                 <p className="mt-6 rounded-xl border border-primary-800 bg-primary-900/60 px-4 py-3 text-sm text-primary-100">
-                  <span className="font-semibold text-accent-300">Demo abierta:</span>{' '}
+                  <span className="font-semibold text-accent-300">Modo demo:</span>{' '}
                   <span className="tabular">{DEMO_CREDENTIALS.email}</span> ·{' '}
                   <span className="tabular">{DEMO_CREDENTIALS.password}</span>
                 </p>
@@ -124,10 +124,10 @@ export default function Landing() {
         <section className="container-app py-16 lg:py-24">
           <div className="max-w-2xl">
             <h2 className="font-display text-3xl font-bold text-sand-900 sm:text-4xl">
-              Todo lo que tu cliente necesita, en un solo lugar
+              Toda tu agenda, en un solo lugar
             </h2>
             <p className="mt-3 text-base text-sand-600">
-              Sin instalar nada. Entra con su email y ve su historial, sus paquetes y sus próximas citas.
+              Sin instalar nada. Entrás con tu email y tenés tu historial, tus paquetes y lo que viene.
             </p>
           </div>
 
@@ -148,7 +148,7 @@ export default function Landing() {
         <section id="como-funciona" className="border-y border-sand-200 bg-white py-16 lg:py-24">
           <div className="container-app">
             <h2 className="max-w-2xl font-display text-3xl font-bold text-sand-900 sm:text-4xl">
-              Reservar toma menos de un minuto
+              Reservar son cuatro pasos
             </h2>
 
             <ol className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,13 +167,13 @@ export default function Landing() {
         <section className="container-app py-16 lg:py-24">
           <div className="overflow-hidden rounded-3xl bg-primary-900 px-6 py-12 text-center sm:px-12 lg:py-16">
             <h2 className="font-display text-3xl font-bold text-white sm:text-4xl">
-              Empezá a llenar tu agenda hoy
+              Tu próxima cita te espera
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-base text-primary-100">
-              Ingresá con tu cuenta y reservá tu próxima cita en menos de un minuto.
+              Ingresá con tu email y elegí el horario que mejor te venga.
             </p>
             <ul className="mx-auto mt-7 flex max-w-xl flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-primary-100">
-              {['Sin instalar nada', 'Disponible 24/7', 'Confirmación inmediata'].map((item) => (
+              {['Sin instalar nada', 'A cualquier hora', 'Cancelás sin llamar'].map((item) => (
                 <li key={item} className="flex items-center gap-1.5">
                   <Check className="h-4 w-4 text-accent-400" aria-hidden="true" />
                   {item}
@@ -190,7 +190,7 @@ export default function Landing() {
 
       <footer className="border-t border-sand-200 bg-white py-8">
         <div className="container-app flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <Logo subtitle="Agenda para tus clientes" />
+          <Logo subtitle="Portal de citas" />
           <p className="text-xs text-sand-500">Horarios en zona América/Asunción</p>
         </div>
       </footer>
@@ -253,8 +253,8 @@ function HeroPreview() {
 
       <div className="mt-4 flex justify-end">
         <div className="rounded-2xl border border-primary-800 bg-white px-4 py-2.5 shadow-lifted">
-          <p className="text-xs text-sand-500">Reservada en</p>
-          <p className="font-display text-xl font-extrabold tabular text-primary-800">48 seg</p>
+          <p className="text-xs text-sand-500">Reservada desde</p>
+          <p className="font-display text-lg font-extrabold text-primary-800">el celular</p>
         </div>
       </div>
     </div>

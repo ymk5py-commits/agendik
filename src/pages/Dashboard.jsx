@@ -151,7 +151,7 @@ export default function Dashboard() {
             <EmptyState
               icon={CalendarDays}
               title="No tenés citas agendadas"
-              description="Reservá tu próxima cita en menos de un minuto."
+              description="Reservá la próxima sin llamar ni esperar respuesta."
               action={
                 <Link to="/reservar" className="btn-primary">
                   <Plus className="h-4 w-4" aria-hidden="true" />

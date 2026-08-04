@@ -125,7 +125,7 @@ export default function MyAppointments() {
 const EMPTY_COPY = {
   upcoming: {
     title: 'No tenés citas agendadas',
-    description: 'Reservá tu próxima cita en menos de un minuto.',
+    description: 'Reservá la próxima sin llamar ni esperar respuesta.',
   },
   past: {
     title: 'Todavía no hay citas pasadas',
