@@ -61,6 +61,11 @@ mismo hueco al mismo tiempo, la segunda inserción falla en Postgres —no en el
 frontend— y la app le pide elegir otro horario. La validación del cliente es
 comodidad; la garantía está en la base.
 
+Las cuatro migraciones se verificaron corriéndolas contra PostgreSQL 16 real,
+comprobando que: el solapamiento del mismo profesional se rechaza, dos citas
+pegadas (11:00 después de 10:00–11:00) sí entran, una cita cancelada libera su
+horario, el seed es idempotente, y un cliente no alcanza los datos de otro.
+
 ### Qué protege RLS
 
 Un cliente autenticado solo ve su propia ficha, sus paquetes y sus citas, y solo

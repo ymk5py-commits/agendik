@@ -165,3 +165,29 @@ create policy appointments_delete_own on public.appointments
 -- Tokens: sin política de lectura directa. El acceso público va
 -- exclusivamente por la función get_appointment_by_token (security definer),
 -- que expone solo los campos necesarios y valida el vencimiento.
+
+-- ---------------------------------------------------------------------
+-- Permisos de tabla
+--
+-- RLS decide QUÉ FILAS ve cada quien; los GRANT deciden si el rol puede
+-- tocar la tabla siquiera. Hacen falta los dos. Supabase otorga permisos
+-- amplios por defecto a anon/authenticated, pero eso depende de con qué
+-- rol se corran estas migraciones. Declararlos acá deja el esquema
+-- correcto sin importar quién lo aplique, y sin dar de más:
+-- `anon` solo llega a la tabla de negocios.
+-- ---------------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+
+grant select on public.tenants to anon, authenticated;
+
+grant select, insert, update on public.clients              to authenticated;
+grant select                  on public.services             to authenticated;
+grant select                  on public.professionals        to authenticated;
+grant select                  on public.working_hours        to authenticated;
+grant select                  on public.packages             to authenticated;
+grant select, update          on public.package_items        to authenticated;
+grant select, insert, update, delete on public.appointments  to authenticated;
+grant select, insert, delete  on public.appointment_services to authenticated;
+
+-- appointment_tokens no recibe ningún grant: solo lo alcanzan las
+-- funciones security definer.
