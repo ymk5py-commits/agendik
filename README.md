@@ -40,10 +40,29 @@ Arranca en `http://localhost:5173` en modo demo. Para apuntar a Supabase, copiá
 
 ## Conectar Supabase
 
+### Vía Vercel (recomendado)
+
+```bash
+vercel integration add supabase --name agendik-db
+```
+
+El comando abre el navegador para aprobar los términos y elegir el plan — ese paso
+lo tiene que hacer una persona, no se puede automatizar. Cuando termine:
+
+```bash
+./scripts/setup-supabase.sh
+```
+
+Ese script hace todo lo demás solo: trae las credenciales que generó Vercel, aplica
+las tres migraciones y el seed, publica `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`,
+y redespliega producción.
+
+### A mano
+
 1. Creá un proyecto en [supabase.com](https://supabase.com).
 2. En el **SQL Editor**, ejecutá en orden:
    - `supabase/migrations/0001_schema.sql` — tablas, índices y la restricción anti-solapamiento
-   - `supabase/migrations/0002_rls.sql` — row level security
+   - `supabase/migrations/0002_rls.sql` — row level security y permisos de tabla
    - `supabase/migrations/0003_functions.sql` — RPC de paquetes y acciones por token
    - `supabase/seed.sql` — un negocio de ejemplo con catálogo, profesionales y horarios
 3. En **Project Settings → API**, copiá `Project URL` y la clave `anon public`.
