@@ -33,12 +33,65 @@ tree-shaking lo elimina por completo.
 npm install && npm run dev
 ```
 
-Arranca en `http://localhost:5173` en modo demo. Para apuntar a Supabase, copiá
-`.env.example` a `.env` y completá las dos variables.
+Arranca en `http://localhost:5180` en modo demo (datos de muestra en el navegador,
+sin backend). Para trabajar contra una base de verdad, seguí la sección de abajo.
 
 ---
 
-## Conectar Supabase
+## Base de datos local
+
+Supabase corre entero en tu máquina con Docker: Postgres, auth y la API REST. Es
+el mismo stack que en la nube, así que la app no cambia — solo apunta a otra URL.
+No hace falta cuenta ni tarjeta.
+
+Requisitos: Docker Desktop abierto.
+
+```bash
+npm run db:start
+```
+
+La primera vez baja unos GB de imágenes. Al terminar imprime las credenciales;
+poné las dos que usa la app en tu `.env`:
+
+```bash
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_ANON_KEY=<el ANON_KEY que imprimió>
+VITE_DEFAULT_TENANT=estudio-alma
+```
+
+Las migraciones y el seed se aplican solos al levantar. Para tener un usuario con
+citas y un paquete ya cargados:
+
+```bash
+npm run db:seed     # demo@agendik.app / agendik123
+```
+
+| Comando | Qué hace |
+|---|---|
+| `npm run db:start` | Levanta el stack |
+| `npm run db:stop` | Lo apaga |
+| `npm run db:reset` | Rehace la base desde las migraciones + seed + usuario demo |
+| `npm run db:studio` | Abre Supabase Studio en el navegador |
+
+Studio queda en `http://127.0.0.1:54323` para mirar y editar los datos a mano, y
+los emails que manda la app se ven en Mailpit, `http://127.0.0.1:54324`.
+
+**Dos cosas que te van a pasar y no son bugs:**
+
+- Después de un `db:reset`, el primer login puede fallar unos segundos con
+  *"No pudimos cargar tu perfil"*. La API responde `PGRST303: JWT issued at future`
+  mientras los contenedores de auth terminan de reiniciar. Esperá unos segundos y
+  reintentá.
+- Un `db:reset` borra los usuarios, pero el navegador conserva la sesión vieja y
+  su token ya no vale. Si la app queda en un estado raro, limpiá el
+  `localStorage` del sitio o entrá en una ventana de incógnito.
+
+El `config.toml` tiene apagados `analytics`, `storage` y `realtime`: la app no los
+usa y `analytics` arrastraba a los demás contenedores a estado *unhealthy*.
+
+---
+
+## Conectar Supabase en la nube
 
 ### Vía Vercel (recomendado)
 
