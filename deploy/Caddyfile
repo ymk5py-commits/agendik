@@ -1,0 +1,45 @@
+# Agendik · gateway y TLS
+#
+# Caddy saca y renueva el certificado de Let's Encrypt solo, siempre que el
+# puerto 80 esté abierto para la validación.
+#
+# Reemplaza a Kong: mapea las mismas rutas que espera el SDK de Supabase.
+
+{$DOMAIN} {
+	encode gzip
+
+	# CORS — solo el origen de la app en Vercel.
+	@preflight method OPTIONS
+	handle @preflight {
+		header {
+			Access-Control-Allow-Origin "{$SITE_URL}"
+			Access-Control-Allow-Methods "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+			Access-Control-Allow-Headers "authorization, apikey, content-type, prefer, x-client-info, range"
+			Access-Control-Max-Age "86400"
+		}
+		respond 204
+	}
+
+	header {
+		Access-Control-Allow-Origin "{$SITE_URL}"
+		Access-Control-Expose-Headers "content-range, content-profile"
+		-Server
+	}
+
+	# Auth (GoTrue)
+	handle /auth/v1/* {
+		uri strip_prefix /auth/v1
+		reverse_proxy auth:9999
+	}
+
+	# API REST (PostgREST)
+	handle /rest/v1/* {
+		uri strip_prefix /rest/v1
+		reverse_proxy rest:3000
+	}
+
+	# Cualquier otra cosa no existe acá.
+	handle {
+		respond "Agendik API" 404
+	}
+}
