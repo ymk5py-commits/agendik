@@ -38,7 +38,8 @@ export const demoBackend = {
     }
     const client = db.clients.find((c) => c.userId === user.id)
     localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }))
-    return { user: { id: user.id, email: user.email }, client, tenant: db.tenant }
+    // El modo demo no tiene panel de negocio: siempre entra como cliente.
+    return { user: { id: user.id, email: user.email }, client, staff: null, tenant: db.tenant }
   },
 
   async signUp({ name, email, phone, password }) {
@@ -76,7 +77,7 @@ export const demoBackend = {
       const user = db.users.find((u) => u.id === userId)
       if (!user) return null
       const client = db.clients.find((c) => c.userId === user.id)
-      return { user: { id: user.id, email: user.email }, client, tenant: db.tenant }
+      return { user: { id: user.id, email: user.email }, client, staff: null, tenant: db.tenant }
     } catch {
       localStorage.removeItem(SESSION_KEY)
       return null
@@ -286,6 +287,21 @@ export const demoBackend = {
   async resetDemo() {
     localStorage.removeItem(DB_KEY)
     localStorage.removeItem(SESSION_KEY)
+  },
+
+  // El panel del negocio necesita backend real: en modo demo no hay equipo
+  // ni datos de otros clientes que mostrar. Se responde vacío en vez de
+  // romper, para que la app siga navegable sin Supabase.
+  async getAgenda() {
+    return []
+  },
+
+  async getAdminClients() {
+    return []
+  },
+
+  async setAppointmentStatus() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
   },
 }
 

@@ -6,6 +6,7 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [client, setClient] = useState(null)
+  const [staff, setStaff] = useState(null)
   const [tenant, setTenant] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -17,6 +18,7 @@ export function AuthProvider({ children }) {
         if (!active || !session) return
         setUser(session.user)
         setClient(session.client)
+        setStaff(session.staff || null)
         setTenant(session.tenant)
       })
       .catch(() => {
@@ -32,6 +34,7 @@ export function AuthProvider({ children }) {
     const session = await backend.signIn(credentials)
     setUser(session.user)
     setClient(session.client)
+    setStaff(session.staff || null)
     setTenant(session.tenant)
     return session
   }, [])
@@ -42,6 +45,7 @@ export function AuthProvider({ children }) {
     await backend.signOut()
     setUser(null)
     setClient(null)
+    setStaff(null)
     setTenant(null)
   }, [])
 
@@ -53,15 +57,18 @@ export function AuthProvider({ children }) {
     () => ({
       user,
       client,
+      staff,
       tenant,
       loading,
-      isAuthenticated: Boolean(user && client),
+      // El equipo del negocio entra sin ficha de cliente.
+      isAuthenticated: Boolean(user && (client || staff)),
+      isStaff: Boolean(staff),
       login,
       register,
       logout,
       updateClient,
     }),
-    [user, client, tenant, loading, login, register, logout, updateClient],
+    [user, client, staff, tenant, loading, login, register, logout, updateClient],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

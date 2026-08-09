@@ -33,6 +33,19 @@ async function fetchClient(userId) {
   return data ? mapClient(data) : null
 }
 
+/** Ficha de equipo. Devuelve null si el usuario es un cliente común. */
+async function fetchStaff(userId) {
+  const { data, error } = await supabase
+    .from('staff')
+    .select('id, tenant_id, user_id, name, email, role')
+    .eq('user_id', userId)
+    .maybeSingle()
+  fail(error, 'No pudimos verificar tus permisos.')
+  return data
+    ? { id: data.id, tenantId: data.tenant_id, name: data.name, email: data.email, role: data.role }
+    : null
+}
+
 const mapClient = (r) => ({
   id: r.id,
   tenantId: r.tenant_id,
@@ -98,10 +111,17 @@ export const supabaseBackend = {
       password,
     })
     fail(error, 'No pudimos iniciar sesión.')
-    const [client, tenant] = await Promise.all([fetchClient(data.user.id), fetchTenant()])
-    if (!client) throw new Error('Tu cuenta todavía no tiene una ficha de cliente asociada.')
-    if (client.status === 'pending') throw new Error('Tu cuenta está pendiente de aprobación del negocio.')
-    return { user: { id: data.user.id, email: data.user.email }, client, tenant }
+    const [client, staff, tenant] = await Promise.all([
+      fetchClient(data.user.id),
+      fetchStaff(data.user.id),
+      fetchTenant(),
+    ])
+    // El equipo del negocio no tiene ficha de cliente: entra por la de staff.
+    if (!client && !staff) throw new Error('Tu cuenta todavía no tiene una ficha asociada.')
+    if (client && !staff && client.status === 'pending') {
+      throw new Error('Tu cuenta está pendiente de aprobación del negocio.')
+    }
+    return { user: { id: data.user.id, email: data.user.email }, client, staff, tenant }
   },
 
   async signUp({ name, email, phone, password }) {
@@ -135,9 +155,13 @@ export const supabaseBackend = {
   async restoreSession() {
     const { data } = await supabase.auth.getSession()
     if (!data.session) return null
-    const [client, tenant] = await Promise.all([fetchClient(data.session.user.id), fetchTenant()])
-    if (!client) return null
-    return { user: { id: data.session.user.id, email: data.session.user.email }, client, tenant }
+    const [client, staff, tenant] = await Promise.all([
+      fetchClient(data.session.user.id),
+      fetchStaff(data.session.user.id),
+      fetchTenant(),
+    ])
+    if (!client && !staff) return null
+    return { user: { id: data.session.user.id, email: data.session.user.email }, client, staff, tenant }
   },
 
   async signOut() {
@@ -403,4 +427,84 @@ export const supabaseBackend = {
     }
     return mapClient(data)
   },
+
+  // === Panel del negocio ==============================================
+  // Todo lo de acá abajo depende de que el usuario tenga ficha en `staff`.
+  // No hace falta comprobarlo en el frontend: si no la tiene, las políticas
+  // de Postgres devuelven cero filas.
+
+  /** Agenda del negocio entre dos fechas (yyyy-MM-dd), ya con cliente y servicios. */
+  async getAgenda({ from, to } = {}) {
+    let query = supabase
+      .from('admin_agenda')
+      .select('*')
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+    if (from) query = query.gte('date', from)
+    if (to) query = query.lte('date', to)
+
+    const { data, error } = await query
+    fail(error, 'No pudimos cargar la agenda.')
+    return (data || []).map(mapAgendaRow)
+  },
+
+  /** Clientes del negocio, con cuántas citas tiene cada uno. */
+  async getAdminClients() {
+    const [{ data: clients, error }, { data: appts, error: apptError }] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('id, tenant_id, user_id, name, email, phone, birth_date, gender, occupation, address, status')
+        .order('name'),
+      supabase.from('appointments').select('client_id, status'),
+    ])
+    fail(error, 'No pudimos cargar los clientes.')
+    fail(apptError, 'No pudimos cargar las citas de los clientes.')
+
+    const conteo = new Map()
+    for (const a of appts || []) {
+      const acc = conteo.get(a.client_id) || { total: 0, activas: 0 }
+      acc.total += 1
+      if (a.status === 'reserved' || a.status === 'confirmed') acc.activas += 1
+      conteo.set(a.client_id, acc)
+    }
+    return (clients || []).map((c) => ({
+      ...mapClient(c),
+      appointments: conteo.get(c.id)?.total || 0,
+      upcoming: conteo.get(c.id)?.activas || 0,
+    }))
+  },
+
+  /** Cambia el estado de una cita. La política de Postgres valida el resto. */
+  async setAppointmentStatus(appointmentId, status) {
+    const { data, error } = await supabase
+      .from('appointments')
+      .update({ status })
+      .eq('id', appointmentId)
+      .select('id, status')
+    fail(error, 'No pudimos actualizar la cita.')
+    // Cero filas significa que RLS lo bloqueó, no que la cita no exista.
+    if (!data || data.length === 0) {
+      throw new Error('No tenés permiso para modificar esta cita.')
+    }
+    return data[0]
+  },
 }
+
+const mapAgendaRow = (r) => ({
+  id: r.id,
+  date: r.date,
+  startTime: (r.start_time || '').slice(0, 5),
+  endTime: (r.end_time || '').slice(0, 5),
+  durationMin: r.duration_min,
+  status: r.status,
+  notes: r.notes || '',
+  source: r.source,
+  clientId: r.client_id,
+  clientName: r.client_name,
+  clientPhone: r.client_phone || '',
+  clientEmail: r.client_email,
+  professionalId: r.professional_id,
+  professionalName: r.professional_name,
+  servicesLabel: r.services_label,
+  totalPrice: Number(r.total_price || 0),
+})

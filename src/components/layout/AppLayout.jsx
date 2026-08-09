@@ -1,20 +1,30 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, Home, LogOut, Menu, Plus, User, X } from 'lucide-react'
+import { CalendarDays, Home, LogOut, Menu, Plus, User, Users, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { isDemoMode } from '../../api/backend'
 import { Logo } from '../Logo'
 import { initials } from '../../utils/format'
 
-const NAV = [
+const NAV_CLIENTE = [
   { to: '/dashboard', label: 'Inicio', icon: Home },
   { to: '/reservar', label: 'Nueva cita', icon: Plus },
   { to: '/mis-citas', label: 'Mis citas', icon: CalendarDays },
   { to: '/perfil', label: 'Mi perfil', icon: User },
 ]
 
+const NAV_EQUIPO = [
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays },
+  { to: '/clientes', label: 'Clientes', icon: Users },
+]
+
+const ROL = { owner: 'Dueña del negocio', staff: 'Equipo' }
+
 export default function AppLayout({ children }) {
-  const { client, tenant, logout } = useAuth()
+  const { client, staff, tenant, logout } = useAuth()
+  const persona = staff || client
+  const NAV = staff ? NAV_EQUIPO : NAV_CLIENTE
+  const inicio = staff ? '/agenda' : '/dashboard'
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -54,7 +64,7 @@ export default function AppLayout({ children }) {
 
       <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/90 backdrop-blur">
         <div className="container-app flex h-16 items-center justify-between gap-4">
-          <NavLink to="/dashboard" className="shrink-0 rounded-lg" aria-label="Agendik, ir al inicio">
+          <NavLink to={inicio} className="shrink-0 rounded-lg" aria-label="Agendik, ir al inicio">
             <Logo subtitle={tenant?.businessName || 'Portal de citas'} />
           </NavLink>
 
@@ -81,15 +91,19 @@ export default function AppLayout({ children }) {
             <div className="flex items-center gap-2.5 border-l border-sand-200 pl-3">
               <span
                 aria-hidden="true"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-800 text-xs font-bold text-white"
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white ${
+                  staff ? 'bg-accent-600' : 'bg-primary-800'
+                }`}
               >
-                {initials(client?.name)}
+                {initials(persona?.name)}
               </span>
               <span className="leading-tight">
                 <span className="block max-w-[9rem] truncate text-sm font-semibold text-sand-900">
-                  {client?.name}
+                  {persona?.name}
                 </span>
-                <span className="block text-xs text-sand-500">Cliente</span>
+                <span className="block text-xs text-sand-500">
+                  {staff ? ROL[staff.role] || 'Equipo' : 'Cliente'}
+                </span>
               </span>
             </div>
             <button type="button" onClick={handleLogout} className="btn-ghost px-2.5" aria-label="Cerrar sesión">
@@ -127,13 +141,15 @@ export default function AppLayout({ children }) {
               <div className="flex items-center gap-3">
                 <span
                   aria-hidden="true"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-800 text-sm font-bold text-white"
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${
+                    staff ? 'bg-accent-600' : 'bg-primary-800'
+                  }`}
                 >
-                  {initials(client?.name)}
+                  {initials(persona?.name)}
                 </span>
                 <span className="leading-tight">
-                  <span className="block truncate text-sm font-semibold text-sand-900">{client?.name}</span>
-                  <span className="block text-xs text-sand-500">{client?.email}</span>
+                  <span className="block truncate text-sm font-semibold text-sand-900">{persona?.name}</span>
+                  <span className="block text-xs text-sand-500">{persona?.email}</span>
                 </span>
               </div>
               <button

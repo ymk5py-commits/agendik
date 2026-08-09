@@ -13,6 +13,8 @@ const BookAppointment = lazy(() => import('./pages/BookAppointment'))
 const MyAppointments = lazy(() => import('./pages/MyAppointments'))
 const Profile = lazy(() => import('./pages/Profile'))
 const AppointmentAction = lazy(() => import('./pages/AppointmentAction'))
+const AdminAgenda = lazy(() => import('./pages/AdminAgenda'))
+const AdminClients = lazy(() => import('./pages/AdminClients'))
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -46,17 +48,28 @@ function ScrollToTop() {
   return null
 }
 
-function PrivateRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+/** Pantallas del portal: exigen ficha de cliente. El equipo va a su agenda. */
+function ClientRoute({ children }) {
+  const { isAuthenticated, isStaff, loading } = useAuth()
   if (loading) return <PageLoader label="Verificando tu sesión…" />
   if (!isAuthenticated) return <Navigate to="/ingresar" replace />
+  if (isStaff) return <Navigate to="/agenda" replace />
+  return <AppLayout>{children}</AppLayout>
+}
+
+/** Panel del negocio: exige ficha de equipo. */
+function StaffRoute({ children }) {
+  const { isAuthenticated, isStaff, loading } = useAuth()
+  if (loading) return <PageLoader label="Verificando tus permisos…" />
+  if (!isAuthenticated) return <Navigate to="/ingresar" replace />
+  if (!isStaff) return <Navigate to="/dashboard" replace />
   return <AppLayout>{children}</AppLayout>
 }
 
 function PublicRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, isStaff, loading } = useAuth()
   if (loading) return <PageLoader />
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />
+  if (isAuthenticated) return <Navigate to={isStaff ? '/agenda' : '/dashboard'} replace />
   return children
 }
 
@@ -71,10 +84,14 @@ export default function App() {
               <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
               <Route path="/ingresar" element={<PublicRoute><Login /></PublicRoute>} />
 
-              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/reservar" element={<PrivateRoute><BookAppointment /></PrivateRoute>} />
-              <Route path="/mis-citas" element={<PrivateRoute><MyAppointments /></PrivateRoute>} />
-              <Route path="/perfil" element={<PrivateRoute><Profile /></PrivateRoute>} />
+              <Route path="/dashboard" element={<ClientRoute><Dashboard /></ClientRoute>} />
+              <Route path="/reservar" element={<ClientRoute><BookAppointment /></ClientRoute>} />
+              <Route path="/mis-citas" element={<ClientRoute><MyAppointments /></ClientRoute>} />
+              <Route path="/perfil" element={<ClientRoute><Profile /></ClientRoute>} />
+
+              {/* Panel del negocio */}
+              <Route path="/agenda" element={<StaffRoute><AdminAgenda /></StaffRoute>} />
+              <Route path="/clientes" element={<StaffRoute><AdminClients /></StaffRoute>} />
 
               {/* Pública: confirmar o cancelar desde email / WhatsApp */}
               <Route path="/cita/:token" element={<AppointmentAction />} />
