@@ -6,18 +6,48 @@ import AppLayout from './components/layout/AppLayout'
 import { PageLoader } from './components/ui'
 import Landing from './pages/Landing'
 
+const FLAG_RECARGA = 'agendik:chunk-recargado'
+
+/**
+ * Igual que lazy(), pero se recupera de un deploy hecho con la app abierta.
+ *
+ * Cada build renombra los chunks con un hash nuevo. Una pestaña que quedó
+ * abierta desde antes pide el nombre viejo, que ya no existe, y el import
+ * falla: sin esto la pantalla queda rota hasta que el usuario recargue a
+ * mano. Recargamos una sola vez —el flag evita el bucle si el fallo es
+ * otro— y se limpia en cuanto un chunk carga bien.
+ */
+function lazyPagina(cargar) {
+  return lazy(() =>
+    cargar()
+      .then((modulo) => {
+        sessionStorage.removeItem(FLAG_RECARGA)
+        return modulo
+      })
+      .catch((error) => {
+        if (!sessionStorage.getItem(FLAG_RECARGA)) {
+          sessionStorage.setItem(FLAG_RECARGA, '1')
+          window.location.reload()
+          // Nunca resuelve: la página se está recargando.
+          return new Promise(() => {})
+        }
+        throw error
+      }),
+  )
+}
+
 // La landing entra en el bundle inicial; el resto se carga al navegar.
-const Login = lazy(() => import('./pages/Login'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const BookAppointment = lazy(() => import('./pages/BookAppointment'))
-const MyAppointments = lazy(() => import('./pages/MyAppointments'))
-const Profile = lazy(() => import('./pages/Profile'))
-const AppointmentAction = lazy(() => import('./pages/AppointmentAction'))
-const AdminAgenda = lazy(() => import('./pages/AdminAgenda'))
-const AdminClients = lazy(() => import('./pages/AdminClients'))
-const AdminProfile = lazy(() => import('./pages/AdminProfile'))
-const AdminServices = lazy(() => import('./pages/AdminServices'))
-const AdminProfessionals = lazy(() => import('./pages/AdminProfessionals'))
+const Login = lazyPagina(() => import('./pages/Login'))
+const Dashboard = lazyPagina(() => import('./pages/Dashboard'))
+const BookAppointment = lazyPagina(() => import('./pages/BookAppointment'))
+const MyAppointments = lazyPagina(() => import('./pages/MyAppointments'))
+const Profile = lazyPagina(() => import('./pages/Profile'))
+const AppointmentAction = lazyPagina(() => import('./pages/AppointmentAction'))
+const AdminAgenda = lazyPagina(() => import('./pages/AdminAgenda'))
+const AdminClients = lazyPagina(() => import('./pages/AdminClients'))
+const AdminProfile = lazyPagina(() => import('./pages/AdminProfile'))
+const AdminServices = lazyPagina(() => import('./pages/AdminServices'))
+const AdminProfessionals = lazyPagina(() => import('./pages/AdminProfessionals'))
 
 class ErrorBoundary extends Component {
   constructor(props) {
