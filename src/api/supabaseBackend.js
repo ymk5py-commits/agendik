@@ -81,6 +81,7 @@ const mapPro = (r) => ({
   name: r.name,
   specialties: r.specialties || [],
   slotIntervalMin: r.slot_interval_min,
+  active: r.active !== false,
 })
 
 const mapAppointment = (r) => ({
@@ -193,12 +194,15 @@ export const supabaseBackend = {
     return data.map(mapService)
   },
 
-  async getProfessionals() {
-    const { data, error } = await supabase
+  /** El panel pide `todos` para poder ver también los dados de baja. */
+  async getProfessionals({ todos = false } = {}) {
+    let query = supabase
       .from('professionals')
-      .select('id, tenant_id, name, specialties, slot_interval_min')
-      .eq('active', true)
+      .select('id, tenant_id, name, specialties, slot_interval_min, active')
       .order('name')
+    if (!todos) query = query.eq('active', true)
+
+    const { data, error } = await query
     fail(error, 'No pudimos cargar los profesionales.')
     return data.map(mapPro)
   },
@@ -602,18 +606,100 @@ export const supabaseBackend = {
   },
 
   /**
-   * Baja de un servicio. Se desactiva en vez de borrarse: las citas
-   * históricas lo siguen referenciando y borrarlo rompería el historial.
+   * Alta y baja de un servicio. Nunca se borra: las citas históricas lo
+   * siguen referenciando y borrarlo rompería el historial. Se desactiva.
    */
-  async deactivateService(serviceId) {
+  async setServiceActive(serviceId, active) {
     const { data, error } = await supabase
       .from('services')
-      .update({ active: false })
+      .update({ active })
       .eq('id', serviceId)
       .select('id')
-    fail(error, 'No pudimos dar de baja el servicio.')
+    fail(error, active ? 'No pudimos reactivar el servicio.' : 'No pudimos dar de baja el servicio.')
     if (!data || data.length === 0) throw new Error('No tenés permiso para editar el catálogo.')
     return true
+  },
+
+  /** Alta o edición de un profesional. */
+  async saveProfessional({ id, tenantId, name, specialties, slotIntervalMin }) {
+    const fila = {
+      tenant_id: tenantId,
+      name: name.trim(),
+      specialties: specialties || [],
+      slot_interval_min: Number(slotIntervalMin) || 30,
+    }
+    const query = id
+      ? supabase.from('professionals').update(fila).eq('id', id).select('*')
+      : supabase.from('professionals').insert({ ...fila, active: true }).select('*')
+
+    const { data, error } = await query
+    fail(error, 'No pudimos guardar el profesional.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar el equipo.')
+    return mapPro(data[0])
+  },
+
+  /** Baja lógica, por lo mismo que los servicios: hay citas que lo referencian. */
+  async setProfessionalActive(professionalId, active) {
+    const { data, error } = await supabase
+      .from('professionals')
+      .update({ active })
+      .eq('id', professionalId)
+      .select('id')
+    fail(error, 'No pudimos cambiar el estado del profesional.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar el equipo.')
+    return true
+  },
+
+  /** Horarios de atención de un profesional, por día de semana. */
+  async getWorkingHours(professionalId) {
+    const { data, error } = await supabase
+      .from('working_hours')
+      .select('id, weekday, start_time, end_time')
+      .eq('professional_id', professionalId)
+      .order('weekday')
+    fail(error, 'No pudimos cargar los horarios.')
+    return (data || []).map((w) => ({
+      id: w.id,
+      weekday: w.weekday,
+      start: String(w.start_time).slice(0, 5),
+      end: String(w.end_time).slice(0, 5),
+    }))
+  },
+
+  /**
+   * Reemplaza los horarios de un profesional.
+   *
+   * Se borra todo y se reinserta en vez de hacer diffs: son pocas filas y
+   * así no quedan restos si se saca un día. Ojo: cambiar horarios NO toca
+   * las citas ya agendadas fuera del nuevo rango; esas quedan y hay que
+   * reprogramarlas a mano.
+   */
+  async saveWorkingHours(professionalId, rangos) {
+    const { error: delError } = await supabase
+      .from('working_hours')
+      .delete()
+      .eq('professional_id', professionalId)
+    fail(delError, 'No pudimos actualizar los horarios.')
+
+    const filas = rangos
+      .filter((r) => r.start && r.end)
+      .map((r) => ({
+        professional_id: professionalId,
+        weekday: r.weekday,
+        start_time: r.start,
+        end_time: r.end,
+      }))
+
+    if (filas.length === 0) return []
+
+    const { data, error } = await supabase.from('working_hours').insert(filas).select('id, weekday, start_time, end_time')
+    fail(error, 'No pudimos guardar los horarios.')
+    return (data || []).map((w) => ({
+      id: w.id,
+      weekday: w.weekday,
+      start: String(w.start_time).slice(0, 5),
+      end: String(w.end_time).slice(0, 5),
+    }))
   },
 
   /**

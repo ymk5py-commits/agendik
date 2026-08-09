@@ -320,7 +320,23 @@ export const demoBackend = {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },
 
-  async deactivateService() {
+  async setServiceActive() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async saveProfessional() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async setProfessionalActive() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async getWorkingHours() {
+    return []
+  },
+
+  async saveWorkingHours() {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },
 

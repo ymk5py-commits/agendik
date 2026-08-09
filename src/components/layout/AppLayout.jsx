@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, Home, LogOut, Menu, Plus, User, Users, X } from 'lucide-react'
+import { CalendarDays, Home, LogOut, Menu, Plus, Scissors, User, UserCog, Users, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { isDemoMode } from '../../api/backend'
 import { Logo } from '../Logo'
@@ -16,6 +16,8 @@ const NAV_CLIENTE = [
 const NAV_EQUIPO = [
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/servicios', label: 'Servicios', icon: Scissors },
+  { to: '/profesionales', label: 'Equipo', icon: UserCog },
   { to: '/mi-cuenta', label: 'Mi cuenta', icon: User },
 ]
 
