@@ -9,6 +9,11 @@ function fail(error, fallback) {
   if (/invalid login credentials/i.test(msg)) throw new Error('Email o contraseña incorrectos.')
   if (/already registered|already exists/i.test(msg)) throw new Error('Ya existe una cuenta con ese email.')
   if (/email not confirmed/i.test(msg)) throw new Error('Confirmá tu email antes de iniciar sesión.')
+  // Pasa cuando el servidor se reinició: el token sigue en el navegador pero
+  // la sesión del otro lado ya no existe. El mensaje genérico confundía.
+  if (/session_not_found|session from session_id/i.test(msg)) {
+    throw new Error('Tu sesión venció. Cerrá sesión y volvé a entrar para hacer este cambio.')
+  }
   if (/failed to fetch|network/i.test(msg)) throw new Error('Sin conexión al servidor. Verificá tu internet.')
   throw new Error(fallback || msg || 'Ocurrió un error inesperado.')
 }
@@ -609,6 +614,31 @@ export const supabaseBackend = {
     fail(error, 'No pudimos dar de baja el servicio.')
     if (!data || data.length === 0) throw new Error('No tenés permiso para editar el catálogo.')
     return true
+  },
+
+  /**
+   * Cuenta propia de quien está en el equipo.
+   *
+   * Solo el nombre y la contraseña. El rol y el negocio no se pueden tocar
+   * ni queriendo: `staff` tiene GRANT de UPDATE únicamente sobre la columna
+   * `name`, así que Postgres rechaza el resto por permisos.
+   */
+  async updateStaffProfile(staffId, { name, password }) {
+    const { data, error } = await supabase
+      .from('staff')
+      .update({ name: name.trim() })
+      .eq('id', staffId)
+      .select('id, tenant_id, user_id, name, email, role')
+    fail(error, 'No pudimos guardar tu cuenta.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar esta cuenta.')
+
+    if (password) {
+      const { error: pwError } = await supabase.auth.updateUser({ password })
+      fail(pwError, 'La cuenta se guardó pero no pudimos cambiar la contraseña.')
+    }
+
+    const r = data[0]
+    return { id: r.id, tenantId: r.tenant_id, name: r.name, email: r.email, role: r.role }
   },
 
   /** Cambia el estado de una cita. La política de Postgres valida el resto. */

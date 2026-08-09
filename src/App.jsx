@@ -15,6 +15,7 @@ const Profile = lazy(() => import('./pages/Profile'))
 const AppointmentAction = lazy(() => import('./pages/AppointmentAction'))
 const AdminAgenda = lazy(() => import('./pages/AdminAgenda'))
 const AdminClients = lazy(() => import('./pages/AdminClients'))
+const AdminProfile = lazy(() => import('./pages/AdminProfile'))
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -92,6 +93,7 @@ export default function App() {
               {/* Panel del negocio */}
               <Route path="/agenda" element={<StaffRoute><AdminAgenda /></StaffRoute>} />
               <Route path="/clientes" element={<StaffRoute><AdminClients /></StaffRoute>} />
+              <Route path="/mi-cuenta" element={<StaffRoute><AdminProfile /></StaffRoute>} />
 
               {/* Pública: confirmar o cancelar desde email / WhatsApp */}
               <Route path="/cita/:token" element={<AppointmentAction />} />

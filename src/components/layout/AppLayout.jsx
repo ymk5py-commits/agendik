@@ -16,6 +16,7 @@ const NAV_CLIENTE = [
 const NAV_EQUIPO = [
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/mi-cuenta', label: 'Mi cuenta', icon: User },
 ]
 
 const ROL = { owner: 'Dueña del negocio', staff: 'Equipo' }

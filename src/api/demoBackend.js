@@ -323,6 +323,10 @@ export const demoBackend = {
   async deactivateService() {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },
+
+  async updateStaffProfile() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
 }
 
 /** Adjunta profesional y servicios a la cita para consumo directo de la UI */
