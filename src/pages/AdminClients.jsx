@@ -1,14 +1,29 @@
 import { useMemo, useState } from 'react'
-import { Phone, Search, Users } from 'lucide-react'
+import { Pencil, Phone, Plus, Search, UserPlus, Users } from 'lucide-react'
 import { backend } from '../api/backend'
+import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { EmptyState, ErrorState, Skeleton } from '../components/ui'
+import ClientFormModal from '../components/admin/ClientFormModal'
 import { formatShortDate, initials } from '../utils/format'
 
 export default function AdminClients() {
+  const { staff } = useAuth()
   const [busqueda, setBusqueda] = useState('')
+  const [editando, setEditando] = useState(null)
+  const [modalAbierto, setModalAbierto] = useState(false)
   const clientes = useAsync(() => backend.getAdminClients(), [], { initialData: [] })
   const lista = clientes.data || []
+
+  const abrirNuevo = () => {
+    setEditando(null)
+    setModalAbierto(true)
+  }
+
+  const abrirEdicion = (cliente) => {
+    setEditando(cliente)
+    setModalAbierto(true)
+  }
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -20,11 +35,17 @@ export default function AdminClients() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-sand-900 sm:text-3xl">Clientes</h1>
-        <p className="mt-1 text-sm text-sand-600">
-          Quiénes reservan en tu negocio y cuántas citas tiene cada uno.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-sand-900 sm:text-3xl">Clientes</h1>
+          <p className="mt-1 text-sm text-sand-600">
+            Quiénes reservan en tu negocio y cuántas citas tiene cada uno.
+          </p>
+        </div>
+        <button type="button" onClick={abrirNuevo} className="btn-accent">
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Nuevo cliente
+        </button>
       </header>
 
       <div className="relative max-w-md">
@@ -54,12 +75,20 @@ export default function AdminClients() {
 
       {!clientes.loading && !clientes.error && visibles.length === 0 && (
         <EmptyState
-          icon={Users}
+          icon={busqueda ? Users : UserPlus}
           title={busqueda ? 'Ningún cliente coincide' : 'Todavía no hay clientes'}
           description={
             busqueda
               ? 'Probá con otro nombre, email o teléfono.'
-              : 'Cuando alguien cree su cuenta en el portal, va a aparecer acá.'
+              : 'Cargá el primero desde “Nuevo cliente”, o esperá a que alguien se registre en el portal.'
+          }
+          action={
+            busqueda ? undefined : (
+              <button type="button" onClick={abrirNuevo} className="btn-primary">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Nuevo cliente
+              </button>
+            )
           }
         />
       )}
@@ -106,10 +135,33 @@ export default function AdminClients() {
               {c.birthDate && (
                 <span className="text-xs text-sand-400">Cumple {formatShortDate(c.birthDate)}</span>
               )}
+
+              {!c.userId && (
+                <span className="chip bg-sand-100 text-sand-600" title="Fichado por el negocio, todavía sin cuenta">
+                  Sin cuenta
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => abrirEdicion(c)}
+                aria-label={`Editar ${c.name}`}
+                className="btn-ghost px-2.5"
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+              </button>
             </li>
           ))}
         </ul>
       )}
+
+      <ClientFormModal
+        open={modalAbierto}
+        onClose={() => setModalAbierto(false)}
+        onSaved={() => clientes.reload()}
+        tenantId={staff?.tenantId}
+        cliente={editando}
+      />
     </div>
   )
 }

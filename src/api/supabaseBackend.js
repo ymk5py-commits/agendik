@@ -67,6 +67,7 @@ const mapService = (r) => ({
   category: r.category,
   durationMin: r.duration_min,
   price: Number(r.price),
+  active: r.active !== false,
 })
 
 const mapPro = (r) => ({
@@ -136,6 +137,11 @@ export const supabaseBackend = {
     // Si el proyecto no exige confirmación de email, la sesión ya viene activa
     // y podemos crear la ficha de cliente en el acto.
     if (data.session && data.user) {
+      // Si el negocio ya te fichó por WhatsApp o mostrador, se adopta esa
+      // ficha con tu historial en vez de crear una nueva vacía.
+      const { data: adoptada } = await supabase.rpc('claim_client_record')
+      if (adoptada) return { message: 'Cuenta creada. Ya podés iniciar sesión.' }
+
       const { error: insertError } = await supabase.from('clients').insert({
         user_id: data.user.id,
         tenant_id: tenant.id,
@@ -168,13 +174,16 @@ export const supabaseBackend = {
     await supabase.auth.signOut()
   },
 
-  async getServices() {
-    const { data, error } = await supabase
+  /** Catálogo. El panel pide `todos` para poder ver también los dados de baja. */
+  async getServices({ todos = false } = {}) {
+    let query = supabase
       .from('services')
-      .select('id, tenant_id, name, category, duration_min, price')
-      .eq('active', true)
+      .select('id, tenant_id, name, category, duration_min, price, active')
       .order('category')
       .order('name')
+    if (!todos) query = query.eq('active', true)
+
+    const { data, error } = await query
     fail(error, 'No pudimos cargar los servicios.')
     return data.map(mapService)
   },
@@ -472,6 +481,134 @@ export const supabaseBackend = {
       appointments: conteo.get(c.id)?.total || 0,
       upcoming: conteo.get(c.id)?.activas || 0,
     }))
+  },
+
+  /**
+   * Da de alta una ficha de cliente desde el panel.
+   *
+   * No crea usuario de login a propósito: la mayoría de la gente reserva por
+   * WhatsApp y nunca entra a la app. Si esa persona después se registra con
+   * el mismo email, adopta esta ficha con todo su historial.
+   */
+  async createClient({ name, email, phone, birthDate, occupation, address, tenantId }) {
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({
+        tenant_id: tenantId,
+        user_id: null,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone || null,
+        birth_date: birthDate || null,
+        occupation: occupation || null,
+        address: address || null,
+        status: 'active',
+      })
+      .select('id, tenant_id, user_id, name, email, phone, birth_date, gender, occupation, address, status')
+      .single()
+    if (error && /duplicate|unique/i.test(error.message)) {
+      throw new Error('Ya existe un cliente con ese email en tu negocio.')
+    }
+    fail(error, 'No pudimos crear el cliente.')
+    return mapClient(data)
+  },
+
+  /** Edita una ficha desde el panel. */
+  async updateClientAsStaff(clientId, patch) {
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        name: patch.name,
+        phone: patch.phone || null,
+        birth_date: patch.birthDate || null,
+        occupation: patch.occupation || null,
+        address: patch.address || null,
+        status: patch.status,
+      })
+      .eq('id', clientId)
+      .select('id, tenant_id, user_id, name, email, phone, birth_date, gender, occupation, address, status')
+    fail(error, 'No pudimos guardar el cliente.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar este cliente.')
+    return mapClient(data[0])
+  },
+
+  /**
+   * Agenda una cita en nombre de un cliente (teléfono, mostrador, WhatsApp).
+   * Si el horario choca, lo rechaza Postgres, no el frontend.
+   */
+  async createAppointmentForClient({ tenantId, clientId, professionalId, serviceIds, date, startTime, notes }) {
+    const { data: servicios, error: svcError } = await supabase
+      .from('services')
+      .select('id, duration_min')
+      .in('id', serviceIds)
+    fail(svcError, 'No pudimos leer los servicios elegidos.')
+
+    const duracion = (servicios || []).reduce((acc, s) => acc + s.duration_min, 0)
+    if (!duracion) throw new Error('Elegí al menos un servicio.')
+
+    const { data: cita, error } = await supabase
+      .from('appointments')
+      .insert({
+        tenant_id: tenantId,
+        client_id: clientId,
+        professional_id: professionalId,
+        date,
+        start_time: startTime,
+        end_time: addMinutesToTime(startTime, duracion),
+        duration_min: duracion,
+        status: 'confirmed',
+        source: 'panel',
+        notes: notes || null,
+      })
+      .select('id')
+      .single()
+
+    if (error && /appointments_no_overlap|exclusion/i.test(error.message || '')) {
+      throw new Error('Ese profesional ya tiene una cita que se superpone con ese horario.')
+    }
+    fail(error, 'No pudimos crear la cita.')
+
+    const { error: linkError } = await supabase
+      .from('appointment_services')
+      .insert(serviceIds.map((id) => ({ appointment_id: cita.id, service_id: id })))
+    fail(linkError, 'La cita se creó pero no pudimos asociar los servicios.')
+
+    return cita
+  },
+
+  /** Alta o edición de un servicio del catálogo. */
+  async saveService({ id, tenantId, name, category, durationMin, price, active }) {
+    const fila = {
+      tenant_id: tenantId,
+      name: name.trim(),
+      category,
+      duration_min: Number(durationMin),
+      price: Number(price),
+      active: active !== false,
+    }
+    const query = id
+      ? supabase.from('services').update(fila).eq('id', id).select('*')
+      : supabase.from('services').insert(fila).select('*')
+
+    const { data, error } = await query
+    fail(error, 'No pudimos guardar el servicio.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar el catálogo.')
+    return mapService(data[0])
+  },
+
+  /**
+   * Baja de un servicio. Se desactiva en vez de borrarse: las citas
+   * históricas lo siguen referenciando y borrarlo rompería el historial.
+   */
+  async deactivateService(serviceId) {
+    const { data, error } = await supabase
+      .from('services')
+      .update({ active: false })
+      .eq('id', serviceId)
+      .select('id')
+    fail(error, 'No pudimos dar de baja el servicio.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar el catálogo.')
+    return true
   },
 
   /** Cambia el estado de una cita. La política de Postgres valida el resto. */

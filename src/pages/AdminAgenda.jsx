@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
-import { Check, Clock, Phone, User, X } from 'lucide-react'
+import { Check, Clock, Phone, Plus, User, X } from 'lucide-react'
 import { backend } from '../api/backend'
+import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { EmptyState, ErrorState, Skeleton } from '../components/ui'
+import NewAppointmentModal from '../components/admin/NewAppointmentModal'
 import { statusMeta } from '../utils/appointments'
 import { formatGs, toDateKey } from '../utils/format'
 
@@ -45,9 +47,11 @@ function accionesPara(estado) {
 }
 
 export default function AdminAgenda() {
+  const { staff } = useAuth()
   const [rango, setRango] = useState('semana')
   const [profesional, setProfesional] = useState('todos')
   const [guardando, setGuardando] = useState(null)
+  const [nuevaCita, setNuevaCita] = useState(false)
 
   const { from, to } = useMemo(() => rangoAFechas(rango), [rango])
   const agenda = useAsync(() => backend.getAgenda({ from, to }), [from, to], { initialData: [] })
@@ -125,6 +129,10 @@ export default function AdminAgenda() {
               {r.label}
             </button>
           ))}
+          <button type="button" onClick={() => setNuevaCita(true)} className="btn-accent ml-1">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Nueva cita
+          </button>
         </div>
       </header>
 
@@ -178,7 +186,13 @@ export default function AdminAgenda() {
         <EmptyState
           icon={Clock}
           title="No hay citas en este período"
-          description="Cambiá el rango de fechas o esperá a que entren reservas nuevas."
+          description="Cambiá el rango de fechas, o cargá una reserva que te haya entrado por teléfono."
+          action={
+            <button type="button" onClick={() => setNuevaCita(true)} className="btn-primary">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Nueva cita
+            </button>
+          }
         />
       )}
 
@@ -260,6 +274,13 @@ export default function AdminAgenda() {
           </section>
         ))}
       </div>
+
+      <NewAppointmentModal
+        open={nuevaCita}
+        onClose={() => setNuevaCita(false)}
+        onCreated={() => agenda.reload()}
+        tenantId={staff?.tenantId}
+      />
     </div>
   )
 }
