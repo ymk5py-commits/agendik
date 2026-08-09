@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
-import { Check, Clock, Phone, Plus, User, X } from 'lucide-react'
+import { CalendarClock, Check, Clock, Phone, Plus, User, X } from 'lucide-react'
 import { backend } from '../api/backend'
 import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { EmptyState, ErrorState, Skeleton } from '../components/ui'
 import NewAppointmentModal from '../components/admin/NewAppointmentModal'
+import RescheduleModal from '../components/admin/RescheduleModal'
 import { statusMeta } from '../utils/appointments'
 import { formatGs, toDateKey } from '../utils/format'
 
@@ -52,6 +53,7 @@ export default function AdminAgenda() {
   const [profesional, setProfesional] = useState('todos')
   const [guardando, setGuardando] = useState(null)
   const [nuevaCita, setNuevaCita] = useState(false)
+  const [reprogramando, setReprogramando] = useState(null)
 
   const { from, to } = useMemo(() => rangoAFechas(rango), [rango])
   const agenda = useAsync(() => backend.getAgenda({ from, to }), [from, to], { initialData: [] })
@@ -248,6 +250,16 @@ export default function AdminAgenda() {
 
                       {acciones.length > 0 && (
                         <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={guardando === cita.id}
+                            onClick={() => setReprogramando(cita)}
+                            aria-label={`Reprogramar la cita de ${cita.clientName}`}
+                            className="btn border border-sand-200 bg-white px-3 py-2 text-sand-700 hover:border-primary-300 hover:text-primary-800"
+                          >
+                            <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                            <span className="hidden lg:inline">Mover</span>
+                          </button>
                           {acciones.map((a) => (
                             <button
                               key={a.to}
@@ -280,6 +292,12 @@ export default function AdminAgenda() {
         onClose={() => setNuevaCita(false)}
         onCreated={() => agenda.reload()}
         tenantId={staff?.tenantId}
+      />
+
+      <RescheduleModal
+        cita={reprogramando}
+        onClose={() => setReprogramando(null)}
+        onDone={() => agenda.reload()}
       />
     </div>
   )

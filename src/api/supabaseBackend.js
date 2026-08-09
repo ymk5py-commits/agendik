@@ -18,33 +18,52 @@ function fail(error, fallback) {
   throw new Error(fallback || msg || 'Ocurrió un error inesperado.')
 }
 
+/**
+ * Reintenta una vez cuando la API rechaza el token por venir "del futuro".
+ *
+ * El contenedor que emite el token y el que lo valida no comparten reloj al
+ * milisegundo, y el `iat` tiene granularidad de un segundo. Si el login y la
+ * primera consulta caen dentro del mismo segundo, la API puede ver un `iat`
+ * mayor que su propio reloj y devolver 401 (PGRST303). Se nota sobre todo en
+ * el navegador, que dispara las consultas apenas recibe el token; esperar un
+ * instante y repetir lo resuelve.
+ */
+async function conReintento(consulta) {
+  const primera = await consulta()
+  const msg = primera.error?.message || ''
+  const codigo = primera.error?.code || ''
+  if (primera.error && (codigo === 'PGRST303' || /issued at future/i.test(msg))) {
+    await new Promise((listo) => setTimeout(listo, 1200))
+    return consulta()
+  }
+  return primera
+}
+
 async function fetchTenant() {
-  const { data, error } = await supabase
-    .from('tenants')
-    .select('id, slug, business_name, phone')
-    .eq('slug', DEFAULT_TENANT)
-    .single()
+  const { data, error } = await conReintento(() =>
+    supabase.from('tenants').select('id, slug, business_name, phone').eq('slug', DEFAULT_TENANT).single(),
+  )
   fail(error, 'No pudimos cargar los datos del negocio.')
   return { id: data.id, slug: data.slug, businessName: data.business_name, phone: data.phone }
 }
 
 async function fetchClient(userId) {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('id, tenant_id, user_id, name, email, phone, birth_date, gender, occupation, address, status')
-    .eq('user_id', userId)
-    .maybeSingle()
+  const { data, error } = await conReintento(() =>
+    supabase
+      .from('clients')
+      .select('id, tenant_id, user_id, name, email, phone, birth_date, gender, occupation, address, status')
+      .eq('user_id', userId)
+      .maybeSingle(),
+  )
   fail(error, 'No pudimos cargar tu perfil.')
   return data ? mapClient(data) : null
 }
 
 /** Ficha de equipo. Devuelve null si el usuario es un cliente común. */
 async function fetchStaff(userId) {
-  const { data, error } = await supabase
-    .from('staff')
-    .select('id, tenant_id, user_id, name, email, role')
-    .eq('user_id', userId)
-    .maybeSingle()
+  const { data, error } = await conReintento(() =>
+    supabase.from('staff').select('id, tenant_id, user_id, name, email, role').eq('user_id', userId).maybeSingle(),
+  )
   fail(error, 'No pudimos verificar tus permisos.')
   return data
     ? { id: data.id, tenantId: data.tenant_id, name: data.name, email: data.email, role: data.role }
@@ -725,6 +744,107 @@ export const supabaseBackend = {
 
     const r = data[0]
     return { id: r.id, tenantId: r.tenant_id, name: r.name, email: r.email, role: r.role }
+  },
+
+  /**
+   * Mueve una cita de día, hora o profesional.
+   *
+   * La duración no cambia (los servicios son los mismos), así que la hora de
+   * fin se recalcula sola. Si el destino choca con otra cita del profesional,
+   * lo rechaza el índice de exclusión: no hay forma de pisarlo desde acá.
+   */
+  async rescheduleAppointment(appointmentId, { date, startTime, professionalId, durationMin }) {
+    const { data, error } = await supabase
+      .from('appointments')
+      .update({
+        date,
+        start_time: startTime,
+        end_time: addMinutesToTime(startTime, durationMin),
+        professional_id: professionalId,
+      })
+      .eq('id', appointmentId)
+      .select('id, date, start_time, end_time')
+
+    if (error && /appointments_no_overlap|exclusion/i.test(error.message || '')) {
+      throw new Error('Ese profesional ya tiene otra cita que se superpone con ese horario.')
+    }
+    fail(error, 'No pudimos reprogramar la cita.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para mover esta cita.')
+    return data[0]
+  },
+
+  /**
+   * Arma o edita un paquete de sesiones para un cliente.
+   *
+   * Los importes se calculan acá desde el precio real de cada servicio, no se
+   * reciben del formulario: si el catálogo cambia de precio, un paquete nuevo
+   * usa el vigente y los viejos conservan el que tenían.
+   */
+  async savePackage({ id, tenantId, clientId, name, items, discountPercentage, totalPaid }) {
+    const serviceIds = items.map((i) => i.serviceId)
+    const { data: servicios, error: svcError } = await supabase
+      .from('services')
+      .select('id, price')
+      .in('id', serviceIds)
+    fail(svcError, 'No pudimos leer los precios del catálogo.')
+
+    const precio = new Map((servicios || []).map((s) => [s.id, Number(s.price)]))
+    const original = items.reduce((acc, i) => acc + (precio.get(i.serviceId) || 0) * i.quantity, 0)
+    const descuento = Math.round((original * Number(discountPercentage || 0)) / 100)
+    const final = original - descuento
+    const pagado = Number(totalPaid || 0)
+
+    const fila = {
+      tenant_id: tenantId,
+      client_id: clientId,
+      name: name.trim(),
+      original_price: original,
+      discount_percentage: Number(discountPercentage || 0),
+      discount_amount: descuento,
+      final_price: final,
+      total_paid: pagado,
+      remaining_balance: final - pagado,
+      status: 'active',
+    }
+
+    const { data: paquete, error } = id
+      ? await supabase.from('packages').update(fila).eq('id', id).select('id').single()
+      : await supabase.from('packages').insert(fila).select('id').single()
+    fail(error, 'No pudimos guardar el paquete.')
+
+    // Los ítems se reemplazan enteros, pero conservando las sesiones ya usadas
+    // de los servicios que siguen: perderlas sería regalarle sesiones al cliente.
+    const { data: previos } = await supabase
+      .from('package_items')
+      .select('service_id, sessions_used')
+      .eq('package_id', paquete.id)
+    const usadas = new Map((previos || []).map((p) => [p.service_id, p.sessions_used]))
+
+    await supabase.from('package_items').delete().eq('package_id', paquete.id)
+
+    const { error: itemsError } = await supabase.from('package_items').insert(
+      items.map((i) => ({
+        package_id: paquete.id,
+        service_id: i.serviceId,
+        quantity: i.quantity,
+        sessions_used: Math.min(usadas.get(i.serviceId) || 0, i.quantity),
+      })),
+    )
+    fail(itemsError, 'El paquete se guardó pero no pudimos cargar sus servicios.')
+
+    return paquete
+  },
+
+  /** Cierra o cancela un paquete. */
+  async setPackageStatus(packageId, status) {
+    const { data, error } = await supabase
+      .from('packages')
+      .update({ status })
+      .eq('id', packageId)
+      .select('id')
+    fail(error, 'No pudimos cambiar el paquete.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar este paquete.')
+    return true
   },
 
   /** Cambia el estado de una cita. La política de Postgres valida el resto. */

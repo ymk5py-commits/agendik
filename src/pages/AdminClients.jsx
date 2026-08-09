@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Phone, Plus, Search, UserPlus, Users } from 'lucide-react'
+import { Layers, Pencil, Phone, Plus, Search, UserPlus, Users } from 'lucide-react'
 import { backend } from '../api/backend'
 import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { EmptyState, ErrorState, Skeleton } from '../components/ui'
 import ClientFormModal from '../components/admin/ClientFormModal'
+import PackagesModal from '../components/admin/PackagesModal'
 import { formatShortDate, initials } from '../utils/format'
 
 export default function AdminClients() {
@@ -12,6 +13,7 @@ export default function AdminClients() {
   const [busqueda, setBusqueda] = useState('')
   const [editando, setEditando] = useState(null)
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [paquetesDe, setPaquetesDe] = useState(null)
   const clientes = useAsync(() => backend.getAdminClients(), [], { initialData: [] })
   const lista = clientes.data || []
 
@@ -142,14 +144,25 @@ export default function AdminClients() {
                 </span>
               )}
 
-              <button
-                type="button"
-                onClick={() => abrirEdicion(c)}
-                aria-label={`Editar ${c.name}`}
-                className="btn-ghost px-2.5"
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPaquetesDe(c)}
+                  aria-label={`Paquetes de ${c.name}`}
+                  className="btn-outline px-3 py-2"
+                >
+                  <Layers className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Paquetes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => abrirEdicion(c)}
+                  aria-label={`Editar ${c.name}`}
+                  className="btn-ghost px-2.5"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -161,6 +174,13 @@ export default function AdminClients() {
         onSaved={() => clientes.reload()}
         tenantId={staff?.tenantId}
         cliente={editando}
+      />
+
+      <PackagesModal
+        cliente={paquetesDe}
+        tenantId={staff?.tenantId}
+        onClose={() => setPaquetesDe(null)}
+        onChanged={() => clientes.reload()}
       />
     </div>
   )

@@ -343,6 +343,18 @@ export const demoBackend = {
   async updateStaffProfile() {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },
+
+  async rescheduleAppointment() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async savePackage() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async setPackageStatus() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
 }
 
 /** Adjunta profesional y servicios a la cita para consumo directo de la UI */
