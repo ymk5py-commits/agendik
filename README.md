@@ -112,14 +112,35 @@ y redespliega producción.
 
 ### A mano
 
-1. Creá un proyecto en [supabase.com](https://supabase.com).
-2. En el **SQL Editor**, ejecutá en orden:
-   - `supabase/migrations/0001_schema.sql` — tablas, índices y la restricción anti-solapamiento
-   - `supabase/migrations/0002_rls.sql` — row level security y permisos de tabla
-   - `supabase/migrations/0003_functions.sql` — RPC de paquetes y acciones por token
-   - `supabase/seed.sql` — un negocio de ejemplo con catálogo, profesionales y horarios
-3. En **Project Settings → API**, copiá `Project URL` y la clave `anon public`.
-4. Poné esos valores en `.env` (local) y en las variables de entorno de Vercel.
+Sirve igual para un proyecto en la nube o para uno self-hosted (Supabase en tu
+propio servidor). Lo único que cambia es la URL.
+
+1. Creá el proyecto, o pedí los datos de uno existente.
+2. En el **SQL Editor**, pegá y ejecutá `supabase/install.sql`. Es todas las
+   migraciones más el seed en un solo archivo, en orden, y se puede correr más
+   de una vez sin romper nada. Ese archivo se regenera con
+   `./scripts/build-install-sql.sh` cada vez que agregás una migración.
+3. Conectá la app:
+
+```bash
+./scripts/connect-supabase.sh https://TU-PROYECTO.supabase.co sb_publishable_...
+```
+
+El script verifica que el servidor responda, que la key sirva y que el esquema
+esté instalado — recién entonces escribe el `.env` (y guarda backup del anterior).
+Si algo falla, te dice exactamente qué.
+
+4. Para producción, cargá `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en las
+   variables de entorno de Vercel y redesplegá.
+
+**Qué key va en el `.env`:** la pública. En proyectos nuevos se llama
+*publishable key* (`sb_publishable_...`), en los viejos *anon key* (`eyJhbG...`).
+Es pública por diseño: viaja al navegador y está limitada por RLS.
+
+**Qué key NO va nunca:** la *secret key* (`sb_secret_...`) o `service_role`.
+Saltean todas las políticas de seguridad, y Vite mete las variables `VITE_*`
+dentro del JavaScript que descarga cualquier visitante. `connect-supabase.sh`
+se niega a escribirla.
 
 Para que el alta de cuenta funcione sin confirmar email, desactivá
 *Authentication → Providers → Email → Confirm email* en Supabase. Con la
