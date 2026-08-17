@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTenant } from '../context/TenantContext'
 import { Field, Spinner } from '../components/ui'
 import { Logo } from '../components/Logo'
-import { isDemoMode } from '../api/backend'
+import { backend, isDemoMode } from '../api/backend'
 import { DEMO_CREDENTIALS } from '../data/demoData'
 
 const loginSchema = z.object({
@@ -120,6 +120,7 @@ function LoginForm() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
+  const [olvide, setOlvide] = useState(false)
 
   const {
     register,
@@ -143,6 +144,8 @@ function LoginForm() {
     setValue('email', DEMO_CREDENTIALS.email, { shouldValidate: true })
     setValue('password', DEMO_CREDENTIALS.password, { shouldValidate: true })
   }
+
+  if (olvide) return <OlvideForm onVolver={() => setOlvide(false)} />
 
   return (
     <div className="card">
@@ -195,6 +198,14 @@ function LoginForm() {
           {isSubmitting ? <Spinner className="h-4 w-4" /> : null}
           {isSubmitting ? 'Ingresando…' : 'Ingresar'}
         </button>
+
+        <button
+          type="button"
+          onClick={() => setOlvide(true)}
+          className="w-full cursor-pointer text-center text-sm text-sand-500 underline-offset-2 hover:text-sand-800 hover:underline"
+        >
+          Olvidé mi contraseña
+        </button>
       </form>
 
       {isDemoMode && (
@@ -207,6 +218,88 @@ function LoginForm() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Pide el mail para mandar el link de recuperación.
+ *
+ * Contesta lo mismo exista o no la cuenta: si dijera "ese email no está
+ * registrado", cualquiera podría averiguar quién es cliente del negocio.
+ */
+function OlvideForm({ onVolver }) {
+  const [email, setEmail] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [enviado, setEnviado] = useState(false)
+  const [error, setError] = useState('')
+
+  const pedir = async (ev) => {
+    ev.preventDefault()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return setError('Escribí un email válido.')
+    }
+    setError('')
+    setEnviando(true)
+    try {
+      await backend.requestPasswordReset(email)
+      setEnviado(true)
+    } catch (err) {
+      setError(err.message || 'No pudimos enviar el mail.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  if (enviado) {
+    return (
+      <div className="card">
+        <h1 className="font-display text-2xl font-bold text-sand-900">Revisá tu correo</h1>
+        <p className="mt-2 text-sm text-sand-500">
+          Si <strong>{email.trim()}</strong> tiene una cuenta, le llega un link para poner
+          una contraseña nueva. Puede tardar un par de minutos, y a veces cae en spam.
+        </p>
+        <button type="button" onClick={onVolver} className="btn-outline mt-6 w-full py-3">
+          Volver a ingresar
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card">
+      <h1 className="font-display text-2xl font-bold text-sand-900">Recuperar contraseña</h1>
+      <p className="mt-1 text-sm text-sand-500">Te mandamos un link para elegir una nueva.</p>
+
+      <form onSubmit={pedir} noValidate className="mt-6 space-y-4">
+        {error && (
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <Field label="Tu email" htmlFor="olv-email" required>
+          <input
+            id="olv-email"
+            type="email"
+            className="input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="tu@email.com"
+            autoComplete="email"
+          />
+        </Field>
+        <button type="submit" disabled={enviando} className="btn-primary w-full py-3">
+          {enviando ? <Spinner className="h-4 w-4" /> : null}
+          {enviando ? 'Enviando…' : 'Enviarme el link'}
+        </button>
+        <button
+          type="button"
+          onClick={onVolver}
+          className="w-full cursor-pointer text-center text-sm text-sand-500 hover:text-sand-800"
+        >
+          Volver
+        </button>
+      </form>
     </div>
   )
 }

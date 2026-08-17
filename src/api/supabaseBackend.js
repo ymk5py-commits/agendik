@@ -251,6 +251,70 @@ export const supabaseBackend = {
     await supabase.auth.signOut()
   },
 
+  /**
+   * Manda el mail con el link para poner una contraseña nueva.
+   *
+   * No dice si el email existe o no: responder distinto permitiría averiguar
+   * quién tiene cuenta en el negocio. Siempre se contesta lo mismo.
+   */
+  async requestPasswordReset(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: `${window.location.origin}/recuperar`,
+    })
+    // Un email inexistente no es un error para el usuario: el mensaje es igual.
+    if (error && !/not found|no user/i.test(error.message || '')) {
+      if (/rate|limit|seconds/i.test(error.message || '')) {
+        throw new Error('Esperá un momento antes de pedir otro mail.')
+      }
+      fail(error, 'No pudimos enviar el mail. Probá de nuevo en un rato.')
+    }
+  },
+
+  /**
+   * Toma el link del mail y deja la sesión lista para cambiar la contraseña.
+   *
+   * El cliente se creó con `detectSessionInUrl: false` (para que la app no
+   * intente leer la dirección en cada pantalla), así que acá hay que hacerlo a
+   * mano. Supabase manda el token de dos formas según la versión: en el
+   * fragmento (#access_token=…) o como `?code=…`; se contemplan las dos.
+   */
+  async startPasswordRecovery() {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const query = new URLSearchParams(window.location.search)
+
+    const accessToken = hash.get('access_token')
+    const refreshToken = hash.get('refresh_token')
+    if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+      if (error) throw new Error('Este link ya venció. Pedí uno nuevo.')
+      return true
+    }
+
+    const code = query.get('code')
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      if (error) throw new Error('Este link ya venció. Pedí uno nuevo.')
+      return true
+    }
+
+    // Sin token en la dirección no se habilita el formulario, aunque haya una
+    // sesión abierta: si no, en una computadora compartida bastaría con entrar
+    // a /recuperar para cambiarle la contraseña a quien dejó la sesión puesta.
+    return false
+  },
+
+  /** Guarda la contraseña nueva. Requiere la sesión que dejó el link. */
+  async completePasswordReset(password) {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error && /same as the old|should be different/i.test(error.message || '')) {
+      throw new Error('Elegí una contraseña distinta a la anterior.')
+    }
+    fail(error, 'No pudimos cambiar la contraseña.')
+  },
+
   /** Catálogo. El panel pide `todos` para poder ver también los dados de baja. */
   async getServices({ todos = false } = {}) {
     let query = supabase

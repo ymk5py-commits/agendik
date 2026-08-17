@@ -93,6 +93,18 @@ export const demoBackend = {
     localStorage.removeItem(SESSION_KEY)
   },
 
+  async requestPasswordReset() {
+    throw new Error('Recuperar la contraseña necesita conexión a la base.')
+  },
+
+  async startPasswordRecovery() {
+    return false
+  },
+
+  async completePasswordReset() {
+    throw new Error('Recuperar la contraseña necesita conexión a la base.')
+  },
+
   async getServices() {
     await wait(160)
     return load().services

@@ -41,6 +41,7 @@ function lazyPagina(cargar) {
 // La landing entra en el bundle inicial; el resto se carga al navegar.
 const Login = lazyPagina(() => import('./pages/Login'))
 const AdminBusinesses = lazyPagina(() => import('./pages/AdminBusinesses'))
+const ResetPassword = lazyPagina(() => import('./pages/ResetPassword'))
 const Dashboard = lazyPagina(() => import('./pages/Dashboard'))
 const BookAppointment = lazyPagina(() => import('./pages/BookAppointment'))
 const MyAppointments = lazyPagina(() => import('./pages/MyAppointments'))
@@ -180,6 +181,13 @@ export default function App() {
 
               {/* Plataforma (dueño de Agendik, por encima de cada negocio) */}
               <Route path="/negocios" element={<PlatformRoute><AdminBusinesses /></PlatformRoute>} />
+
+              {/*
+                Llega desde el mail de recuperación. No va dentro de
+                PublicRoute: quien pide el link queda con una sesión temporal,
+                y PublicRoute lo mandaría al panel sin dejarlo cambiarla.
+              */}
+              <Route path="/recuperar" element={<ResetPassword />} />
 
               {/* Pública: confirmar o cancelar desde email / WhatsApp */}
               <Route path="/cita/:token" element={<AppointmentAction />} />
