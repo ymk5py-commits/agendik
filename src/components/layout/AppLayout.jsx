@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, Home, LogOut, Menu, Plus, Scissors, User, UserCog, Users, X } from 'lucide-react'
+import {
+  Building2,
+  CalendarDays,
+  Home,
+  LogOut,
+  Menu,
+  Plus,
+  Scissors,
+  User,
+  UserCog,
+  Users,
+  X,
+} from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { isDemoMode } from '../../api/backend'
 import { Logo } from '../Logo'
@@ -21,12 +33,17 @@ const NAV_EQUIPO = [
   { to: '/mi-cuenta', label: 'Mi cuenta', icon: User },
 ]
 
+// El dueño de la plataforma ve además la lista de negocios. Es un ítem
+// aparte y no parte de NAV_EQUIPO porque no pertenece a ningún negocio.
+const NAV_PLATAFORMA = { to: '/negocios', label: 'Negocios', icon: Building2 }
+
 const ROL = { owner: 'Dueña del negocio', staff: 'Equipo' }
 
 export default function AppLayout({ children }) {
-  const { client, staff, tenant, logout } = useAuth()
+  const { client, staff, tenant, isPlatformAdmin, logout } = useAuth()
   const persona = staff || client
-  const NAV = staff ? NAV_EQUIPO : NAV_CLIENTE
+  const base = staff ? NAV_EQUIPO : NAV_CLIENTE
+  const NAV = isPlatformAdmin ? [...base, NAV_PLATAFORMA] : base
   const inicio = staff ? '/agenda' : '/dashboard'
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()

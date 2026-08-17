@@ -59,6 +59,18 @@ async function fetchClient(userId) {
   return data ? mapClient(data) : null
 }
 
+/**
+ * ¿Es el dueño de la plataforma (quien da de alta los negocios)?
+ *
+ * Un error acá no puede tumbar el login: si la consulta falla, se asume que
+ * no lo es, que es la opción segura.
+ */
+async function fetchIsPlatformAdmin() {
+  const { data, error } = await conReintento(() => supabase.rpc('is_platform_admin'))
+  if (error) return false
+  return data === true
+}
+
 /** Ficha de equipo. Devuelve null si el usuario es un cliente común. */
 async function fetchStaff(userId) {
   const { data, error } = await conReintento(() =>
@@ -137,17 +149,18 @@ export const supabaseBackend = {
       password,
     })
     fail(error, 'No pudimos iniciar sesión.')
-    const [client, staff, tenant] = await Promise.all([
+    const [client, staff, tenant, isPlatformAdmin] = await Promise.all([
       fetchClient(data.user.id),
       fetchStaff(data.user.id),
       fetchTenant(),
+      fetchIsPlatformAdmin(),
     ])
     // El equipo del negocio no tiene ficha de cliente: entra por la de staff.
     if (!client && !staff) throw new Error('Tu cuenta todavía no tiene una ficha asociada.')
     if (client && !staff && client.status === 'pending') {
       throw new Error('Tu cuenta está pendiente de aprobación del negocio.')
     }
-    return { user: { id: data.user.id, email: data.user.email }, client, staff, tenant }
+    return { user: { id: data.user.id, email: data.user.email }, client, staff, tenant, isPlatformAdmin }
   },
 
   async signUp({ name, email, phone, password }) {
@@ -186,13 +199,20 @@ export const supabaseBackend = {
   async restoreSession() {
     const { data } = await supabase.auth.getSession()
     if (!data.session) return null
-    const [client, staff, tenant] = await Promise.all([
+    const [client, staff, tenant, isPlatformAdmin] = await Promise.all([
       fetchClient(data.session.user.id),
       fetchStaff(data.session.user.id),
       fetchTenant(),
+      fetchIsPlatformAdmin(),
     ])
     if (!client && !staff) return null
-    return { user: { id: data.session.user.id, email: data.session.user.email }, client, staff, tenant }
+    return {
+      user: { id: data.session.user.id, email: data.session.user.email },
+      client,
+      staff,
+      tenant,
+      isPlatformAdmin,
+    }
   },
 
   async signOut() {
@@ -543,6 +563,59 @@ export const supabaseBackend = {
     fail(error, 'No pudimos guardar el cliente.')
     if (!data || data.length === 0) throw new Error('No tenés permiso para editar este cliente.')
     return mapClient(data[0])
+  },
+
+  // === Plataforma ======================================================
+  // Solo para el dueño de la plataforma. Igual que en el resto de la app, el
+  // permiso lo decide Postgres: si no lo es, las funciones lo rechazan.
+
+  /** Los negocios dados de alta, con el email de su dueño. */
+  async listBusinesses() {
+    const { data, error } = await supabase.rpc('list_businesses')
+    fail(error, 'No pudimos cargar los negocios.')
+    return (data || []).map((b) => ({
+      id: b.id,
+      slug: b.slug,
+      businessName: b.business_name,
+      phone: b.phone || '',
+      createdAt: b.created_at,
+      ownerEmail: b.owner_email || '',
+    }))
+  },
+
+  /**
+   * Da de alta un negocio y la cuenta de su dueño.
+   *
+   * Devuelve la contraseña temporal para pasársela: no se le envía ningún
+   * mail, así que si no se copia en el momento, se pierde (habría que
+   * cambiarla desde el panel del negocio).
+   */
+  async createBusiness({ slug, businessName, phone, ownerEmail, ownerName }) {
+    const { data, error } = await supabase.rpc('create_business', {
+      p_slug: slug,
+      p_business_name: businessName,
+      p_phone: phone || null,
+      p_owner_email: ownerEmail,
+      p_owner_name: ownerName || null,
+    })
+    if (error) {
+      const msg = error.message || ''
+      if (/esa dirección/i.test(msg)) throw new Error('Ya hay un negocio con esa dirección web.')
+      if (/ese email/i.test(msg)) throw new Error('Ya existe una cuenta con ese email.')
+      if (/dirección del negocio/i.test(msg)) {
+        throw new Error('La dirección web solo admite minúsculas, números y guiones.')
+      }
+      if (/dueño de la plataforma/i.test(msg)) {
+        throw new Error('No tenés permiso para crear negocios.')
+      }
+    }
+    fail(error, 'No pudimos crear el negocio.')
+    return {
+      tenantId: data.tenant_id,
+      slug: data.slug,
+      ownerEmail: data.owner_email,
+      ownerPassword: data.owner_password,
+    }
   },
 
   /**

@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [client, setClient] = useState(null)
   const [staff, setStaff] = useState(null)
   const [tenant, setTenant] = useState(null)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export function AuthProvider({ children }) {
         setClient(session.client)
         setStaff(session.staff || null)
         setTenant(session.tenant)
+        setIsPlatformAdmin(Boolean(session.isPlatformAdmin))
       })
       .catch(() => {
         // Sesión inválida o backend caído: se arranca sin sesión.
@@ -36,6 +38,7 @@ export function AuthProvider({ children }) {
     setClient(session.client)
     setStaff(session.staff || null)
     setTenant(session.tenant)
+    setIsPlatformAdmin(Boolean(session.isPlatformAdmin))
     return session
   }, [])
 
@@ -47,6 +50,7 @@ export function AuthProvider({ children }) {
     setClient(null)
     setStaff(null)
     setTenant(null)
+    setIsPlatformAdmin(false)
   }, [])
 
   const updateClient = useCallback((patch) => {
@@ -67,13 +71,27 @@ export function AuthProvider({ children }) {
       // El equipo del negocio entra sin ficha de cliente.
       isAuthenticated: Boolean(user && (client || staff)),
       isStaff: Boolean(staff),
+      // Quien da de alta los negocios. No es un rol dentro de un negocio.
+      isPlatformAdmin,
       login,
       register,
       logout,
       updateClient,
       updateStaff,
     }),
-    [user, client, staff, tenant, loading, login, register, logout, updateClient, updateStaff],
+    [
+      user,
+      client,
+      staff,
+      tenant,
+      isPlatformAdmin,
+      loading,
+      login,
+      register,
+      logout,
+      updateClient,
+      updateStaff,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

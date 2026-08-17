@@ -7,3 +7,6 @@ dist
 .DS_Store
 *.log
 .vercel
+
+# reportes del escáner de seguridad (se regeneran al correrlo)
+strix_runs

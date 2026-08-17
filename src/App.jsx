@@ -38,6 +38,7 @@ function lazyPagina(cargar) {
 
 // La landing entra en el bundle inicial; el resto se carga al navegar.
 const Login = lazyPagina(() => import('./pages/Login'))
+const AdminBusinesses = lazyPagina(() => import('./pages/AdminBusinesses'))
 const Dashboard = lazyPagina(() => import('./pages/Dashboard'))
 const BookAppointment = lazyPagina(() => import('./pages/BookAppointment'))
 const MyAppointments = lazyPagina(() => import('./pages/MyAppointments'))
@@ -90,6 +91,20 @@ function ClientRoute({ children }) {
   return <AppLayout>{children}</AppLayout>
 }
 
+/**
+ * Pantalla de la plataforma: exige ser el dueño de la plataforma.
+ *
+ * Igual que con el resto, esto solo decide qué se dibuja: quién puede leer o
+ * crear negocios de verdad lo deciden las funciones en Postgres.
+ */
+function PlatformRoute({ children }) {
+  const { isAuthenticated, isPlatformAdmin, loading } = useAuth()
+  if (loading) return <PageLoader label="Verificando tus permisos…" />
+  if (!isAuthenticated) return <Navigate to="/ingresar" replace />
+  if (!isPlatformAdmin) return <Navigate to="/dashboard" replace />
+  return <AppLayout>{children}</AppLayout>
+}
+
 /** Panel del negocio: exige ficha de equipo. */
 function StaffRoute({ children }) {
   const { isAuthenticated, isStaff, loading } = useAuth()
@@ -128,6 +143,9 @@ export default function App() {
               <Route path="/servicios" element={<StaffRoute><AdminServices /></StaffRoute>} />
               <Route path="/profesionales" element={<StaffRoute><AdminProfessionals /></StaffRoute>} />
               <Route path="/mi-cuenta" element={<StaffRoute><AdminProfile /></StaffRoute>} />
+
+              {/* Plataforma (dueño de Agendik, por encima de cada negocio) */}
+              <Route path="/negocios" element={<PlatformRoute><AdminBusinesses /></PlatformRoute>} />
 
               {/* Pública: confirmar o cancelar desde email / WhatsApp */}
               <Route path="/cita/:token" element={<AppointmentAction />} />

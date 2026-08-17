@@ -316,6 +316,14 @@ export const demoBackend = {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },
 
+  async listBusinesses() {
+    return []
+  },
+
+  async createBusiness() {
+    throw new Error('Dar de alta negocios necesita conexión a la base.')
+  },
+
   async createAppointmentForClient() {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },
