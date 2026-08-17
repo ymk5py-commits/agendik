@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Layers, Pencil, Phone, Plus, Search, UserPlus, Users } from 'lucide-react'
+import { KeyRound, Layers, Pencil, Phone, Plus, Search, UserPlus, Users } from 'lucide-react'
 import { backend } from '../api/backend'
 import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { EmptyState, ErrorState, Skeleton } from '../components/ui'
 import ClientFormModal from '../components/admin/ClientFormModal'
+import ClientPasswordModal from '../components/admin/ClientPasswordModal'
 import PackagesModal from '../components/admin/PackagesModal'
 import { formatShortDate, initials } from '../utils/format'
 
@@ -14,6 +15,7 @@ export default function AdminClients() {
   const [editando, setEditando] = useState(null)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [paquetesDe, setPaquetesDe] = useState(null)
+  const [claveDe, setClaveDe] = useState(null)
   const clientes = useAsync(() => backend.getAdminClients(), [], { initialData: [] })
   const lista = clientes.data || []
 
@@ -154,6 +156,19 @@ export default function AdminClients() {
                   <Layers className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Paquetes</span>
                 </button>
+                {/* Solo tiene sentido en quienes ya entran al portal: al resto
+                    no hay contraseña que cambiarles. */}
+                {c.userId && (
+                  <button
+                    type="button"
+                    onClick={() => setClaveDe(c)}
+                    aria-label={`Cambiar la contraseña de ${c.name}`}
+                    title="Cambiar contraseña"
+                    className="btn-ghost px-2.5"
+                  >
+                    <KeyRound className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => abrirEdicion(c)}
@@ -175,6 +190,8 @@ export default function AdminClients() {
         tenantId={staff?.tenantId}
         cliente={editando}
       />
+
+      <ClientPasswordModal cliente={claveDe} onClose={() => setClaveDe(null)} />
 
       <PackagesModal
         cliente={paquetesDe}

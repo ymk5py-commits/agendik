@@ -146,6 +146,20 @@ Para que el alta de cuenta funcione sin confirmar email, desactivá
 *Authentication → Providers → Email → Confirm email* en Supabase. Con la
 confirmación activa, la ficha de cliente se crea recién en el primer login.
 
+### El negocio le cambia la contraseña a un cliente
+
+Sin servidor de correo no hay "olvidé mi contraseña" posible, así que el equipo
+lo resuelve desde el panel: en cada cliente que ya entra al portal aparece un
+botón de llave (`/clientes`). La contraseña la decide el negocio y se la pasa
+a la persona: no le llega ningún mail.
+
+Cambiar la clave de otro usuario necesita privilegios que no pueden vivir en el
+navegador (la `service_role` terminaría en el bundle de Vite). Por eso va por una
+función `security definer` en Postgres —`admin_set_client_password`— que primero
+comprueba, ella misma, que quien llama es del equipo y que el cliente es de su
+mismo negocio. Nunca deja tocar la contraseña de otro miembro del equipo, y al
+cambiarla cierra las sesiones abiertas de ese cliente.
+
 ### Por qué la agenda no se puede sobrevender
 
 `appointments` tiene una restricción de exclusión GiST: un profesional no puede

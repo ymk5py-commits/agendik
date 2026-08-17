@@ -561,6 +561,32 @@ export const supabaseBackend = {
   },
 
   /**
+   * Le pone una contraseña nueva a un cliente que perdió la suya.
+   *
+   * Va por RPC y no por la API de administración porque esa API pide la clave
+   * de servicio, que no puede vivir en el navegador. Quién puede hacerlo lo
+   * decide la función en Postgres, no esta pantalla.
+   */
+  async setClientPassword(clientId, password) {
+    const { error } = await supabase.rpc('admin_set_client_password', {
+      p_client_id: clientId,
+      p_password: password,
+    })
+    if (error) {
+      const msg = error.message || ''
+      if (/al menos 8/i.test(msg)) throw new Error('La contraseña necesita al menos 8 caracteres.')
+      if (/no tiene cuenta/i.test(msg)) {
+        throw new Error('Este cliente todavía no tiene cuenta para entrar al portal.')
+      }
+      if (/equipo/i.test(msg)) {
+        throw new Error('No se puede cambiar la contraseña de alguien del equipo desde acá.')
+      }
+      if (/no es de tu negocio/i.test(msg)) throw new Error('Ese cliente no es de tu negocio.')
+    }
+    fail(error, 'No pudimos cambiar la contraseña.')
+  },
+
+  /**
    * Agenda una cita en nombre de un cliente (teléfono, mostrador, WhatsApp).
    * Si el horario choca, lo rechaza Postgres, no el frontend.
    */
