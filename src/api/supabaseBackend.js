@@ -459,7 +459,7 @@ export const supabaseBackend = {
     return out
   },
 
-  async createAppointment({ professionalId, date, startTime, serviceIds, packageId, notes }) {
+  async createAppointment({ professionalId, date, startTime, serviceIds, packageId, subscriptionId, notes }) {
     // La duración y la hora de fin las calcula el servidor (RPC book_appointment)
     // a partir de los servicios reales: el cliente no puede declarar una duración
     // menor para ocupar menos agenda de la que corresponde.
@@ -470,10 +470,17 @@ export const supabaseBackend = {
       p_service_ids: serviceIds,
       p_package_id: packageId || null,
       p_notes: notes || null,
+      p_subscription_id: subscriptionId || null,
     })
 
     if (error && /overlap|exclusion|conflict|23P01/i.test(`${error.message} ${error.code}`)) {
       throw new Error('Ese horario acaba de ocuparse. Elegí otro, por favor.')
+    }
+    if (error && /turnos de tu plan/i.test(error.message || '')) {
+      throw new Error('Ya usaste todos los turnos de tu plan este mes.')
+    }
+    if (error && /plan no cubre/i.test(error.message || '')) {
+      throw new Error('Tu plan no cubre alguno de los servicios elegidos.')
     }
     if (error && /servicio|duración|profesional/i.test(error.message || '')) {
       throw new Error('Revisá los servicios y el profesional elegidos.')
@@ -808,6 +815,29 @@ export const supabaseBackend = {
    * Alta y baja de un servicio. Nunca se borra: las citas históricas lo
    * siguen referenciando y borrarlo rompería el historial. Se desactiva.
    */
+  /**
+   * Los planes del cliente logueado, con lo que le queda del mes.
+   *
+   * Lo resuelve la base en una sola consulta (`mis_planes`), que ya calcula el
+   * período y los usos: así la pantalla de reserva no tiene que replicar esa
+   * lógica ni puede mostrar un número distinto al que va a validar el servidor.
+   */
+  async getMyPlans() {
+    const { data, error } = await supabase.rpc('mis_planes')
+    if (error) return []
+    return (data || []).map((p) => ({
+      id: p.subscription_id,
+      planId: p.plan_id,
+      name: p.plan_name,
+      periodStart: p.period_start,
+      periodEnd: p.period_end,
+      total: p.total,
+      usados: p.usados,
+      restantes: p.restantes,
+      serviceIds: p.service_ids || [],
+    }))
+  },
+
   // === Planes con cuota mensual =======================================
 
   /** Los planes del negocio, con los servicios que cubre cada uno. */

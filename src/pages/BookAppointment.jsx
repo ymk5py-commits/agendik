@@ -22,6 +22,7 @@ export default function BookAppointment() {
   const [step, setStep] = useState(0)
   const [serviceIds, setServiceIds] = useState([])
   const [packageId, setPackageId] = useState(null)
+  const [subscriptionId, setSubscriptionId] = useState(null)
   const [professionalId, setProfessionalId] = useState(null)
   const [date, setDate] = useState(null)
   const [time, setTime] = useState(null)
@@ -31,6 +32,7 @@ export default function BookAppointment() {
   const services = useAsync(() => backend.getServices(), [], { initialData: [] })
   const professionals = useAsync(() => backend.getProfessionals(), [], { initialData: [] })
   const packages = useAsync(() => backend.getPackages(client.id), [client.id], { initialData: [] })
+  const plans = useAsync(() => backend.getMyPlans(), [client.id], { initialData: [] })
 
   const selectedServices = useMemo(
     () => (services.data || []).filter((s) => serviceIds.includes(s.id)),
@@ -66,6 +68,7 @@ export default function BookAppointment() {
 
   const selectPackage = (id) => {
     setPackageId(id)
+    if (id) setSubscriptionId(null)
     if (!id) return
     // Al elegir paquete, dejamos solo los servicios que ese paquete cubre
     const pkg = (packages.data || []).find((p) => p.id === id)
@@ -73,6 +76,19 @@ export default function BookAppointment() {
       (pkg?.items || []).filter((i) => i.sessionsUsed < i.quantity).map((i) => i.serviceId),
     )
     setServiceIds((prev) => prev.filter((sid) => covered.has(sid)))
+    setProfessionalId(null)
+    setDate(null)
+    setTime(null)
+  }
+
+  const selectPlan = (id) => {
+    setSubscriptionId(id)
+    // Plan y paquete son formas distintas de pagar: no se combinan.
+    if (id) setPackageId(null)
+    if (!id) return
+    const plan = (plans.data || []).find((p) => p.id === id)
+    const cubiertos = new Set(plan?.serviceIds || [])
+    setServiceIds((prev) => prev.filter((sid) => cubiertos.has(sid)))
     setProfessionalId(null)
     setDate(null)
     setTime(null)
@@ -109,6 +125,7 @@ export default function BookAppointment() {
         startTime: time,
         serviceIds,
         packageId,
+        subscriptionId,
         notes: notes.trim(),
         durationMin: totalDuration,
       })
@@ -153,16 +170,20 @@ export default function BookAppointment() {
           <StepServices
             services={services.data}
             packages={packages.data}
-            loading={services.loading || packages.loading}
+            plans={plans.data}
+            loading={services.loading || packages.loading || plans.loading}
             error={services.error || packages.error}
             onRetry={() => {
               services.reload()
               packages.reload()
+              plans.reload()
             }}
             selectedServiceIds={serviceIds}
             selectedPackageId={packageId}
+            selectedSubscriptionId={subscriptionId}
             onToggleService={toggleService}
             onSelectPackage={selectPackage}
+            onSelectPlan={selectPlan}
           />
         )}
 
@@ -216,7 +237,11 @@ export default function BookAppointment() {
                 </p>
                 <p className="text-xs tabular text-sand-500">
                   {formatDuration(totalDuration)}
-                  {packageId ? ' · con tu paquete' : ` · ${formatGs(totalPrice)}`}
+                  {subscriptionId
+                    ? ' · con tu plan'
+                    : packageId
+                      ? ' · con tu paquete'
+                      : ` · ${formatGs(totalPrice)}`}
                   {date && time ? ` · ${formatShortDate(date)} ${time}` : ''}
                 </p>
               </>

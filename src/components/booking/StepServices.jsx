@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react'
-import { Check, Layers, Search, Sparkles, X } from 'lucide-react'
+import { CalendarRange, Check, Layers, Search, Sparkles, X } from 'lucide-react'
 import { EmptyState, ErrorState, Skeleton } from '../ui'
 import { formatDuration, formatGs } from '../../utils/format'
 
 export default function StepServices({
   services,
   packages,
+  plans,
+  selectedSubscriptionId,
+  onSelectPlan,
   loading,
   error,
   onRetry,
@@ -31,6 +34,10 @@ export default function StepServices({
     })
   }, [services, query, category])
 
+  // Solo se ofrecen los planes que todavía tienen usos este mes: mostrar uno
+  // agotado invita a elegirlo para que el servidor lo rechace después.
+  const usablePlans = (plans || []).filter((p) => p.restantes > 0)
+
   const usablePackages = (packages || []).filter(
     (p) => p.status === 'active' && p.items.some((i) => i.sessionsUsed < i.quantity),
   )
@@ -49,6 +56,51 @@ export default function StepServices({
 
   return (
     <div className="space-y-6">
+      {/* Planes con cuota mensual */}
+      {usablePlans.length > 0 && (
+        <section>
+          <h3 className="flex items-center gap-1.5 font-display text-sm font-bold text-sand-900">
+            <CalendarRange className="h-4 w-4 text-primary-600" aria-hidden="true" />
+            Usar tu plan del mes
+          </h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {usablePlans.map((plan) => {
+              const selected = selectedSubscriptionId === plan.id
+              return (
+                <button
+                  key={plan.id}
+                  type="button"
+                  onClick={() => onSelectPlan(selected ? null : plan.id)}
+                  aria-pressed={selected}
+                  aria-label={`Usar el plan ${plan.name}`}
+                  className={`cursor-pointer rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    selected
+                      ? 'border-primary-600 bg-primary-50 ring-2 ring-primary-600/20'
+                      : 'border-sand-200 bg-white hover:border-primary-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-display text-sm font-bold text-sand-900">{plan.name}</p>
+                    {selected && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-700 text-white">
+                        <Check className="h-3 w-3" aria-hidden="true" />
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-sand-600">
+                    Te quedan{' '}
+                    <span className="tabular font-bold text-primary-700">
+                      {plan.restantes} de {plan.total}
+                    </span>{' '}
+                    este mes
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Paquetes disponibles */}
       {usablePackages.length > 0 && (
         <section>
