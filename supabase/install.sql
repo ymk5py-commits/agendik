@@ -1585,6 +1585,459 @@ revoke all on function public.list_businesses() from public, anon;
 grant execute on function public.list_businesses() to authenticated;
 
 -- ─────────────────────────────────────────
+-- supabase/migrations/0012_un_negocio_por_usuario.sql
+-- ─────────────────────────────────────────
+
+-- =====================================================================
+-- Agendik · un usuario pertenece a un solo negocio (auditoría fase 4)
+--
+-- Hallazgo: cualquier usuario registrado podía insertarse como cliente en
+-- CUALQUIER negocio de la plataforma. La política `clients_insert_own` solo
+-- exigía `user_id = auth.uid()` y nunca miró el `tenant_id`.
+--
+-- Con un solo negocio era inocuo. Con varios rompe la invariante sobre la que
+-- se apoya toda la seguridad: `current_tenant_id()` y `current_client_id()`
+-- resuelven con `limit 1`, así que un usuario con ficha en dos negocios deja
+-- al sistema eligiendo cuál sin criterio.
+--
+-- Verificado antes del fix, contra la base real: un cliente del negocio A se
+-- insertó en el negocio B y desde ahí **pudo reservar una cita**, ocupando un
+-- turno real de una agenda ajena. También veía el catálogo del otro negocio.
+-- No llegaba a ver clientes ni la agenda del panel: eso ya lo frenaba la RLS.
+--
+-- El arreglo va en la base y no en la política, porque la garantía tiene que
+-- valer para cualquier camino (app, API directa, o un bug futuro en el
+-- frontend): un `unique` sobre `user_id` hace imposible la segunda ficha.
+--
+-- Nota de producto: una persona que quiera ser clienta de dos negocios de la
+-- plataforma necesita una cuenta por negocio. Es la contracara de esta
+-- garantía, y es coherente con el resto del diseño (el mismo motivo por el que
+-- `admin_set_client_password` ya se negaba a tocar cuentas de varios negocios).
+-- =====================================================================
+
+-- Las fichas sin cuenta (`user_id` nulo) son las que carga el negocio por
+-- mostrador o WhatsApp: pueden ser muchas, y en Postgres varios NULL no chocan
+-- entre sí en un índice único.
+create unique index if not exists clients_user_id_unico
+  on public.clients (user_id)
+  where user_id is not null;
+
+-- A propósito NO se toca la política `clients_insert_own`: una política que
+-- consulte `clients` dentro de su propia regla dispara la RLS de la misma
+-- tabla y puede terminar en recursión, rompiendo el alta de cuentas. El índice
+-- ya da la garantía dura, y la app traduce el error a algo legible.
+
+-- ─────────────────────────────────────────
+-- supabase/migrations/0013_planes.sql
+-- ─────────────────────────────────────────
+
+-- =====================================================================
+-- Agendik · planes con cuota mensual (suscripciones)
+--
+-- Distinto de `packages`, que es un combo que se compra una vez y se agota
+-- ("4 limpiezas faciales"). Un plan es una cuota que se renueva sola:
+-- "Pilates 2 veces por semana" = 8 usos al mes, y el mes que viene otra vez 8.
+--
+-- Decisiones tomadas con el negocio:
+--   · el ciclo arranca el día que la persona se suscribió, no el 1 del mes
+--     (quien se suscribe un 28 no pierde su primer mes),
+--   · los usos que no gastó NO se acumulan: cada período arranca completo,
+--   · el plan cubre solo los servicios que se le indiquen.
+--
+-- Cómo se cuentan los usos: **no hay un contador que sume y reste**. Se cuentan
+-- las citas del período. Un contador mutable se desincroniza apenas una
+-- operación falla a mitad de camino, y no hay forma de saber cuál es el número
+-- correcto. Contando las citas, el número siempre se puede recalcular desde los
+-- hechos.
+--
+-- La regla de negocio que pidió el equipo:
+--   · cita reservada  → ocupa un uso, pero si se cancela el uso vuelve,
+--   · cita confirmada → el uso queda tomado aunque después se cancele.
+-- Eso se resuelve con la marca `subscription_locked`, que un disparador pone
+-- al confirmar y ya no se saca.
+-- =====================================================================
+
+-- Planes del negocio (las plantillas) ---------------------------------
+create table if not exists public.plans (
+  id               uuid primary key default gen_random_uuid(),
+  tenant_id        uuid not null references public.tenants (id) on delete cascade,
+  name             text not null,
+  uses_per_period  integer not null check (uses_per_period > 0),
+  price            numeric(12, 2) not null default 0,
+  active           boolean not null default true,
+  created_at       timestamptz not null default now()
+);
+create index if not exists plans_tenant_idx on public.plans (tenant_id);
+
+-- Qué servicios cubre cada plan ---------------------------------------
+create table if not exists public.plan_services (
+  plan_id    uuid not null references public.plans (id) on delete cascade,
+  service_id uuid not null references public.services (id) on delete cascade,
+  primary key (plan_id, service_id)
+);
+
+-- La suscripción de un cliente a un plan ------------------------------
+create table if not exists public.subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  tenant_id  uuid not null references public.tenants (id) on delete cascade,
+  client_id  uuid not null references public.clients (id) on delete cascade,
+  plan_id    uuid not null references public.plans (id) on delete restrict,
+  started_on date not null default current_date,
+  status     text not null default 'active' check (status in ('active', 'paused', 'cancelled')),
+  created_at timestamptz not null default now()
+);
+create index if not exists subscriptions_client_idx on public.subscriptions (client_id);
+create index if not exists subscriptions_tenant_idx on public.subscriptions (tenant_id);
+
+-- Una cita puede descontar de una suscripción -------------------------
+alter table public.appointments
+  add column if not exists subscription_id uuid references public.subscriptions (id) on delete set null;
+alter table public.appointments
+  add column if not exists subscription_locked boolean not null default false;
+create index if not exists appointments_subscription_idx
+  on public.appointments (subscription_id) where subscription_id is not null;
+
+-- ---------------------------------------------------------------------
+-- El uso queda tomado al confirmar
+--
+-- Va como disparador y no en el código de cada pantalla porque una cita se
+-- confirma por varios caminos (el panel, el link del recordatorio) y todos
+-- tienen que dejar la misma marca.
+-- ---------------------------------------------------------------------
+create or replace function public.marcar_uso_de_plan()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.subscription_id is not null
+     and new.status = 'confirmed'
+     and not new.subscription_locked then
+    new.subscription_locked := true;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists appointments_lock_plan_use on public.appointments;
+create trigger appointments_lock_plan_use
+  before insert or update of status on public.appointments
+  for each row execute function public.marcar_uso_de_plan();
+
+-- ---------------------------------------------------------------------
+-- El período vigente de una suscripción
+--
+-- El ciclo corre desde el día de alta: si arrancó un 12, va del 12 al 11.
+-- Postgres ya ajusta los meses cortos al sumar intervalos (31 de enero + 1 mes
+-- = 28 de febrero), así que no hace falta tratar ese caso aparte.
+-- ---------------------------------------------------------------------
+create or replace function public.periodo_de_suscripcion(
+  p_started_on date,
+  p_al         date default current_date
+)
+returns table (period_start date, period_end date)
+language sql
+immutable
+as $$
+  with meses as (
+    select (
+      (extract(year from p_al) - extract(year from p_started_on)) * 12
+      + (extract(month from p_al) - extract(month from p_started_on))
+      - case when extract(day from p_al) < extract(day from p_started_on) then 1 else 0 end
+    )::int as n
+  )
+  select
+    (p_started_on + (greatest(n, 0) || ' months')::interval)::date,
+    (p_started_on + ((greatest(n, 0) + 1) || ' months')::interval)::date - 1
+  from meses;
+$$;
+
+-- ---------------------------------------------------------------------
+-- Cuántos usos le quedan a una suscripción en su período actual
+-- ---------------------------------------------------------------------
+create or replace function public.usos_de_suscripcion(p_subscription_id uuid)
+returns table (
+  period_start date,
+  period_end   date,
+  total        integer,
+  usados       integer,
+  restantes    integer
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with s as (
+    select sub.id, sub.started_on, p.uses_per_period
+    from public.subscriptions sub
+    join public.plans p on p.id = sub.plan_id
+    where sub.id = p_subscription_id
+  ),
+  per as (
+    select s.id, s.uses_per_period, pe.period_start, pe.period_end
+    from s, lateral public.periodo_de_suscripcion(s.started_on) pe
+  ),
+  gastados as (
+    select per.id, count(a.id)::int as n
+    from per
+    left join public.appointments a
+      on a.subscription_id = per.id
+     and a.date between per.period_start and per.period_end
+     -- Una cita cancelada solo devuelve el uso si nunca llegó a confirmarse.
+     and (a.status <> 'cancelled' or a.subscription_locked)
+    group by per.id
+  )
+  select per.period_start, per.period_end, per.uses_per_period,
+         gastados.n, greatest(per.uses_per_period - gastados.n, 0)
+  from per join gastados on gastados.id = per.id;
+$$;
+
+grant execute on function public.usos_de_suscripcion(uuid) to authenticated;
+
+-- Seguridad ------------------------------------------------------------
+alter table public.plans         enable row level security;
+alter table public.plan_services enable row level security;
+alter table public.subscriptions enable row level security;
+
+-- Los planes se ven dentro del negocio: el cliente necesita saber qué cubre
+-- el suyo, y el equipo los administra.
+drop policy if exists plans_select on public.plans;
+create policy plans_select on public.plans
+  for select to authenticated using (tenant_id = public.current_tenant_id());
+
+drop policy if exists plans_write_staff on public.plans;
+create policy plans_write_staff on public.plans
+  for all to authenticated
+  using (public.is_staff() and tenant_id = public.current_tenant_id())
+  with check (public.is_staff() and tenant_id = public.current_tenant_id());
+
+drop policy if exists plan_services_select on public.plan_services;
+create policy plan_services_select on public.plan_services
+  for select to authenticated using (
+    exists (select 1 from public.plans p
+            where p.id = plan_services.plan_id and p.tenant_id = public.current_tenant_id())
+  );
+
+drop policy if exists plan_services_write_staff on public.plan_services;
+create policy plan_services_write_staff on public.plan_services
+  for all to authenticated
+  using (
+    public.is_staff() and exists (
+      select 1 from public.plans p
+      where p.id = plan_services.plan_id and p.tenant_id = public.current_tenant_id())
+  )
+  with check (
+    public.is_staff() and exists (
+      select 1 from public.plans p
+      where p.id = plan_services.plan_id and p.tenant_id = public.current_tenant_id())
+  );
+
+-- Cada cliente ve su suscripción; el equipo ve las de su negocio.
+drop policy if exists subscriptions_select_own on public.subscriptions;
+create policy subscriptions_select_own on public.subscriptions
+  for select to authenticated using (client_id = public.current_client_id());
+
+drop policy if exists subscriptions_select_staff on public.subscriptions;
+create policy subscriptions_select_staff on public.subscriptions
+  for select to authenticated
+  using (public.is_staff() and tenant_id = public.current_tenant_id());
+
+-- Suscribir a alguien es una decisión del negocio, no del cliente.
+drop policy if exists subscriptions_write_staff on public.subscriptions;
+create policy subscriptions_write_staff on public.subscriptions
+  for all to authenticated
+  using (public.is_staff() and tenant_id = public.current_tenant_id())
+  with check (public.is_staff() and tenant_id = public.current_tenant_id());
+
+grant select on public.plans         to authenticated;
+grant select on public.plan_services to authenticated;
+grant select on public.subscriptions to authenticated;
+grant insert, update, delete on public.plans         to authenticated;
+grant insert, update, delete on public.plan_services to authenticated;
+grant insert, update, delete on public.subscriptions to authenticated;
+
+-- ─────────────────────────────────────────
+-- supabase/migrations/0014_reservar_con_plan.sql
+-- ─────────────────────────────────────────
+
+-- =====================================================================
+-- Agendik · reservar usando un plan
+--
+-- Extiende `book_appointment` para que la cita pueda descontar de una
+-- suscripción. Las validaciones van acá y no en el navegador porque el cliente
+-- llama la API directo: si la cuota se controlara en el frontend, alcanzaría
+-- con abrir la consola para reservar de más.
+--
+-- Se valida, en este orden:
+--   1. la suscripción es del cliente que llama y está activa,
+--   2. el plan cubre TODOS los servicios que eligió,
+--   3. le queda al menos un uso en el período actual.
+-- =====================================================================
+
+-- Se elimina la versión anterior a propósito: agregar un parámetro no la
+-- reemplaza, crea una segunda. Con las dos vivas, una llamada con los seis
+-- parámetros viejos entraría por la de antes y saltearía toda la lógica del
+-- plan, sin dar ningún error.
+drop function if exists public.book_appointment(uuid, date, time, uuid[], uuid, text);
+
+create or replace function public.book_appointment(
+  p_professional_id uuid,
+  p_date            date,
+  p_start_time      time,
+  p_service_ids     uuid[],
+  p_package_id      uuid default null,
+  p_notes           text default null,
+  p_subscription_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_client_id uuid;
+  v_tenant_id uuid;
+  v_duration  int;
+  v_count     int;
+  v_appt_id   uuid;
+  v_restantes int;
+  v_sin_cubrir int;
+begin
+  v_client_id := public.current_client_id();
+  if v_client_id is null then
+    raise exception 'Necesitás una cuenta de cliente para reservar.'
+      using errcode = '42501';
+  end if;
+  v_tenant_id := public.current_tenant_id();
+
+  if p_service_ids is null or array_length(p_service_ids, 1) is null then
+    raise exception 'Elegí al menos un servicio.' using errcode = '22023';
+  end if;
+
+  -- La duración sale de la base, no del cliente.
+  select coalesce(sum(duration_min), 0), count(*)
+    into v_duration, v_count
+    from public.services
+   where id = any (p_service_ids)
+     and tenant_id = v_tenant_id;
+
+  if v_count <> array_length(p_service_ids, 1) then
+    raise exception 'Alguno de los servicios elegidos no es válido.'
+      using errcode = '22023';
+  end if;
+  if v_duration <= 0 then
+    raise exception 'La duración de los servicios no es válida.'
+      using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1 from public.professionals
+    where id = p_professional_id and tenant_id = v_tenant_id
+  ) then
+    raise exception 'Ese profesional no es de este negocio.'
+      using errcode = '22023';
+  end if;
+
+  -- Validación del plan -----------------------------------------------
+  if p_subscription_id is not null then
+    if not exists (
+      select 1 from public.subscriptions
+      where id = p_subscription_id
+        and client_id = v_client_id
+        and status = 'active'
+    ) then
+      raise exception 'Ese plan no es tuyo o no está activo.' using errcode = '42501';
+    end if;
+
+    -- Todos los servicios tienen que estar cubiertos: si el plan es de pilates
+    -- no puede pagar una limpieza facial.
+    select count(*) into v_sin_cubrir
+    from unnest(p_service_ids) as pedido(service_id)
+    where not exists (
+      select 1
+      from public.subscriptions sub
+      join public.plan_services ps on ps.plan_id = sub.plan_id
+      where sub.id = p_subscription_id and ps.service_id = pedido.service_id
+    );
+    if v_sin_cubrir > 0 then
+      raise exception 'Tu plan no cubre alguno de los servicios elegidos.'
+        using errcode = '22023';
+    end if;
+
+    select restantes into v_restantes
+    from public.usos_de_suscripcion(p_subscription_id);
+
+    if coalesce(v_restantes, 0) <= 0 then
+      raise exception 'Ya usaste todos los turnos de tu plan este mes.'
+        using errcode = '22023';
+    end if;
+  end if;
+
+  insert into public.appointments (
+    tenant_id, client_id, professional_id, date, start_time, end_time,
+    duration_min, package_id, subscription_id, status, notes, source
+  )
+  values (
+    v_tenant_id, v_client_id, p_professional_id, p_date, p_start_time,
+    p_start_time + make_interval(mins => v_duration), v_duration,
+    p_package_id, p_subscription_id, 'reserved', coalesce(p_notes, ''), 'portal'
+  )
+  returning id into v_appt_id;
+
+  insert into public.appointment_services (appointment_id, service_id)
+  select v_appt_id, unnest(p_service_ids);
+
+  if p_package_id is not null then
+    perform public.consume_package_sessions(p_package_id, p_service_ids);
+  end if;
+
+  return v_appt_id;
+end;
+$$;
+
+grant execute on function
+  public.book_appointment(uuid, date, time, uuid[], uuid, text, uuid)
+  to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Los planes del cliente logueado, con lo que le queda este mes.
+--
+-- Junta la suscripción, su plan y el cálculo del período en una sola consulta,
+-- para que la pantalla de reserva no tenga que armarlo a mano.
+-- ---------------------------------------------------------------------
+create or replace function public.mis_planes()
+returns table (
+  subscription_id uuid,
+  plan_id         uuid,
+  plan_name       text,
+  period_start    date,
+  period_end      date,
+  total           integer,
+  usados          integer,
+  restantes       integer,
+  service_ids     uuid[]
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    sub.id, p.id, p.name,
+    u.period_start, u.period_end, u.total, u.usados, u.restantes,
+    coalesce(array_agg(ps.service_id) filter (where ps.service_id is not null), '{}')
+  from public.subscriptions sub
+  join public.plans p on p.id = sub.plan_id
+  left join public.plan_services ps on ps.plan_id = p.id
+  cross join lateral public.usos_de_suscripcion(sub.id) u
+  where sub.client_id = public.current_client_id()
+    and sub.status = 'active'
+  group by sub.id, p.id, p.name, u.period_start, u.period_end, u.total, u.usados, u.restantes;
+$$;
+
+grant execute on function public.mis_planes() to authenticated;
+
+-- ─────────────────────────────────────────
 -- supabase/seed.sql
 -- ─────────────────────────────────────────
 
