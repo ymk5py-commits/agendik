@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { KeyRound, Layers, Pencil, Phone, Plus, Search, UserPlus, Users } from 'lucide-react'
+import { CalendarRange, KeyRound, Layers, Pencil, Phone, Plus, Search, UserPlus, Users } from 'lucide-react'
 import { backend } from '../api/backend'
 import { useAuth } from '../context/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 import { EmptyState, ErrorState, Skeleton } from '../components/ui'
 import ClientFormModal from '../components/admin/ClientFormModal'
 import ClientPasswordModal from '../components/admin/ClientPasswordModal'
+import SubscriptionsModal from '../components/admin/SubscriptionsModal'
 import PackagesModal from '../components/admin/PackagesModal'
 import { formatShortDate, initials } from '../utils/format'
 
@@ -16,6 +17,7 @@ export default function AdminClients() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [paquetesDe, setPaquetesDe] = useState(null)
   const [claveDe, setClaveDe] = useState(null)
+  const [planesDe, setPlanesDe] = useState(null)
   const clientes = useAsync(() => backend.getAdminClients(), [], { initialData: [] })
   const lista = clientes.data || []
 
@@ -149,6 +151,16 @@ export default function AdminClients() {
               <div className="flex gap-1">
                 <button
                   type="button"
+                  onClick={() => setPlanesDe(c)}
+                  aria-label={`Planes de ${c.name}`}
+                  title="Planes mensuales"
+                  className="btn-outline px-3 py-2"
+                >
+                  <CalendarRange className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Planes</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPaquetesDe(c)}
                   aria-label={`Paquetes de ${c.name}`}
                   className="btn-outline px-3 py-2"
@@ -192,6 +204,13 @@ export default function AdminClients() {
       />
 
       <ClientPasswordModal cliente={claveDe} onClose={() => setClaveDe(null)} />
+
+      <SubscriptionsModal
+        cliente={planesDe}
+        tenantId={staff?.tenantId}
+        onClose={() => setPlanesDe(null)}
+        onChanged={() => clientes.reload()}
+      />
 
       <PackagesModal
         cliente={paquetesDe}

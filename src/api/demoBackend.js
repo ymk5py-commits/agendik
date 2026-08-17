@@ -349,6 +349,30 @@ export const demoBackend = {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },
 
+  async getPlans() {
+    return []
+  },
+
+  async savePlan() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async setPlanActive() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async getClientSubscriptions() {
+    return []
+  },
+
+  async subscribeClient() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
+  async setSubscriptionStatus() {
+    throw new Error('El panel del negocio necesita conexión a la base.')
+  },
+
   async setServiceActive() {
     throw new Error('El panel del negocio necesita conexión a la base.')
   },

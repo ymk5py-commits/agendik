@@ -808,6 +808,126 @@ export const supabaseBackend = {
    * Alta y baja de un servicio. Nunca se borra: las citas históricas lo
    * siguen referenciando y borrarlo rompería el historial. Se desactiva.
    */
+  // === Planes con cuota mensual =======================================
+
+  /** Los planes del negocio, con los servicios que cubre cada uno. */
+  async getPlans() {
+    const { data, error } = await supabase
+      .from('plans')
+      .select('id, tenant_id, name, uses_per_period, price, active, plan_services ( service_id )')
+      .order('name')
+    fail(error, 'No pudimos cargar los planes.')
+    return (data || []).map((p) => ({
+      id: p.id,
+      tenantId: p.tenant_id,
+      name: p.name,
+      usesPerPeriod: p.uses_per_period,
+      price: Number(p.price),
+      active: p.active !== false,
+      serviceIds: (p.plan_services || []).map((s) => s.service_id),
+    }))
+  },
+
+  /**
+   * Alta o edición de un plan, con los servicios que cubre.
+   *
+   * Los servicios se reemplazan enteros (se borran y se vuelven a insertar) en
+   * vez de calcular altas y bajas: son pocos, y así no quedan estados raros si
+   * algo falla en el medio.
+   */
+  async savePlan({ id, tenantId, name, usesPerPeriod, price, active, serviceIds }) {
+    const fila = {
+      tenant_id: tenantId,
+      name: name.trim(),
+      uses_per_period: Number(usesPerPeriod),
+      price: Number(price) || 0,
+      active: active !== false,
+    }
+    const { data, error } = await (id
+      ? supabase.from('plans').update(fila).eq('id', id).select('id')
+      : supabase.from('plans').insert(fila).select('id'))
+    fail(error, 'No pudimos guardar el plan.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar los planes.')
+    const planId = data[0].id
+
+    await supabase.from('plan_services').delete().eq('plan_id', planId)
+    if (serviceIds?.length) {
+      const { error: linkError } = await supabase
+        .from('plan_services')
+        .insert(serviceIds.map((sid) => ({ plan_id: planId, service_id: sid })))
+      fail(linkError, 'El plan se guardó pero no pudimos asociar los servicios.')
+    }
+    return planId
+  },
+
+  async setPlanActive(planId, active) {
+    const { data, error } = await supabase.from('plans').update({ active }).eq('id', planId).select('id')
+    fail(error, 'No pudimos cambiar el estado del plan.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar los planes.')
+    return true
+  },
+
+  /** Las suscripciones de un cliente, con lo que le queda del período. */
+  async getClientSubscriptions(clientId) {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('id, plan_id, started_on, status, plans ( name, uses_per_period, price )')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+    fail(error, 'No pudimos cargar los planes del cliente.')
+
+    // El detalle de usos se calcula en la base (una consulta por suscripción:
+    // son pocas por cliente y así no se duplica la lógica del período acá).
+    const conUsos = await Promise.all(
+      (data || []).map(async (s) => {
+        const { data: u } = await supabase.rpc('usos_de_suscripcion', { p_subscription_id: s.id })
+        const uso = Array.isArray(u) ? u[0] : u
+        return {
+          id: s.id,
+          planId: s.plan_id,
+          planName: s.plans?.name || '',
+          usesPerPeriod: s.plans?.uses_per_period || 0,
+          price: Number(s.plans?.price || 0),
+          startedOn: s.started_on,
+          status: s.status,
+          periodStart: uso?.period_start || null,
+          periodEnd: uso?.period_end || null,
+          usados: uso?.usados ?? 0,
+          restantes: uso?.restantes ?? 0,
+        }
+      }),
+    )
+    return conUsos
+  },
+
+  /** Suscribe a un cliente a un plan. */
+  async subscribeClient({ tenantId, clientId, planId, startedOn }) {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .insert({
+        tenant_id: tenantId,
+        client_id: clientId,
+        plan_id: planId,
+        started_on: startedOn || new Date().toISOString().slice(0, 10),
+      })
+      .select('id')
+    fail(error, 'No pudimos asignar el plan.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para asignar planes.')
+    return data[0].id
+  },
+
+  /** Pausa, reactiva o da de baja una suscripción. */
+  async setSubscriptionStatus(subscriptionId, status) {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .update({ status })
+      .eq('id', subscriptionId)
+      .select('id')
+    fail(error, 'No pudimos cambiar el estado del plan.')
+    if (!data || data.length === 0) throw new Error('No tenés permiso para editar planes.')
+    return true
+  },
+
   async setServiceActive(serviceId, active) {
     const { data, error } = await supabase
       .from('services')

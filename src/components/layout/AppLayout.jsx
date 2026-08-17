@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Building2,
   CalendarDays,
+  CalendarRange,
   Home,
   LogOut,
   Menu,
@@ -30,6 +31,7 @@ const NAV_EQUIPO = [
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/servicios', label: 'Servicios', icon: Scissors },
   { to: '/profesionales', label: 'Equipo', icon: UserCog },
+  { to: '/planes', label: 'Planes', icon: CalendarRange },
   { to: '/mi-cuenta', label: 'Mi cuenta', icon: User },
 ]
 

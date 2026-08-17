@@ -42,6 +42,7 @@ function lazyPagina(cargar) {
 const Login = lazyPagina(() => import('./pages/Login'))
 const AdminBusinesses = lazyPagina(() => import('./pages/AdminBusinesses'))
 const ResetPassword = lazyPagina(() => import('./pages/ResetPassword'))
+const AdminPlans = lazyPagina(() => import('./pages/AdminPlans'))
 const Dashboard = lazyPagina(() => import('./pages/Dashboard'))
 const BookAppointment = lazyPagina(() => import('./pages/BookAppointment'))
 const MyAppointments = lazyPagina(() => import('./pages/MyAppointments'))
@@ -177,6 +178,7 @@ export default function App() {
               <Route path="/clientes" element={<StaffRoute><AdminClients /></StaffRoute>} />
               <Route path="/servicios" element={<StaffRoute><AdminServices /></StaffRoute>} />
               <Route path="/profesionales" element={<StaffRoute><AdminProfessionals /></StaffRoute>} />
+              <Route path="/planes" element={<StaffRoute><AdminPlans /></StaffRoute>} />
               <Route path="/mi-cuenta" element={<StaffRoute><AdminProfile /></StaffRoute>} />
 
               {/* Plataforma (dueño de Agendik, por encima de cada negocio) */}
