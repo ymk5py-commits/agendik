@@ -1,18 +1,14 @@
 -- =====================================================================
 -- Agendik · instalación completa del esquema
---
 -- Generado a partir de supabase/migrations/*.sql + supabase/seed.sql.
--- Sirve para un proyecto en la nube o para uno self-hosted:
--- pegalo entero en el SQL Editor del proyecto y ejecutá.
--- Es seguro correrlo más de una vez (el seed usa ON CONFLICT).
---
+-- Se puede correr más de una vez sin romper nada.
 -- NO EDITAR A MANO: se regenera con scripts/build-install-sql.sh
 -- =====================================================================
 
 
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 -- supabase/migrations/0001_schema.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · esquema base
@@ -183,9 +179,9 @@ create table if not exists public.appointment_tokens (
 
 create index if not exists appointment_tokens_appt_idx on public.appointment_tokens (appointment_id);
 
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 -- supabase/migrations/0002_rls.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · seguridad a nivel de fila (RLS)
@@ -381,9 +377,9 @@ grant select, insert, delete  on public.appointment_services to authenticated;
 -- appointment_tokens no recibe ningún grant: solo lo alcanzan las
 -- funciones security definer.
 
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 -- supabase/migrations/0003_functions.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · funciones RPC
@@ -596,9 +592,9 @@ grant execute on function public.act_on_appointment_by_token(text, text) to anon
 grant execute on function public.consume_package_sessions(uuid, uuid[]) to authenticated;
 grant execute on function public.restore_package_sessions(uuid, uuid[]) to authenticated;
 
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 -- supabase/migrations/0004_admin.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · panel de administración
@@ -778,9 +774,9 @@ alter view public.admin_agenda set (security_invoker = true);
 
 grant select on public.admin_agenda to authenticated;
 
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 -- supabase/migrations/0005_admin_write.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · el panel deja de ser solo de lectura
@@ -945,9 +941,9 @@ $$;
 
 grant execute on function public.claim_client_record() to authenticated;
 
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 -- supabase/migrations/0006_staff_profile.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · cuenta propia del equipo
@@ -969,9 +965,9 @@ create policy staff_update_own on public.staff
 -- permisos antes de que RLS siquiera opine.
 grant update (name) on public.staff to authenticated;
 
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 -- supabase/migrations/0007_admin_client_password.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · el negocio le cambia la contraseña a un cliente
@@ -1056,9 +1052,330 @@ $$;
 revoke all on function public.admin_set_client_password(uuid, text) from public, anon;
 grant execute on function public.admin_set_client_password(uuid, text) to authenticated;
 
+-- ─────────────────────────────────────────
+-- supabase/migrations/0008_security_fixes.sql
+-- ─────────────────────────────────────────
+
+-- =====================================================================
+-- Agendik · correcciones de seguridad (auditoría Strix + Gemini, 16-ago-2026)
+--
+-- Arregla tres hallazgos verificados contra el código. El cuarto (bypass de
+-- rutas de admin por React) resultó falso positivo: la vista admin_agenda ya
+-- corre con security_invoker=true y las tablas tienen RLS, así que manipular
+-- el frontend muestra el cascarón vacío pero no filtra datos. El quinto
+-- (duración de la cita calculada en el cliente) necesita un RPC nuevo y va
+-- aparte, en 0009.
+-- =====================================================================
+
 -- ─────────────────────────────────────────────────────────────────────
+-- FIX 1 · Escalada de privilegios entre negocios (HIGH, CWE-863)
+--
+-- `current_tenant_id()` resolvía el negocio mirando primero la tabla
+-- `clients` y después `staff`. Como cualquiera puede insertar su propia
+-- ficha de cliente en CUALQUIER negocio (la política solo exige
+-- user_id = auth.uid()), un miembro del equipo del negocio A podía
+-- insertarse como cliente del negocio B y, al resolver el tenant a B
+-- mientras is_staff() seguía siendo true, leer y modificar toda la agenda
+-- de B.
+--
+-- Dos barreras, en profundidad:
+--   a) el equipo primero: para el staff, el negocio lo define su fila en
+--      `staff`, que no puede falsificar insertándose como cliente.
+--   b) la ficha de cliente solo puede crearse en un negocio que exista, y
+--      además marcamos que insertarse en otro negocio ya no da acceso de
+--      staff gracias a (a).
+-- ─────────────────────────────────────────────────────────────────────
+create or replace function public.current_tenant_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select tenant_id from public.staff   where user_id = auth.uid() limit 1),
+    (select tenant_id from public.clients where user_id = auth.uid() limit 1)
+  );
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- FIX 2 · Robo de cuenta al cambiar la contraseña de un cliente (HIGH, CWE-639)
+--
+-- `admin_set_client_password` deja que el negocio le ponga una contraseña
+-- nueva a su cliente. Pero la identidad en `auth.users` es global: si esa
+-- persona también es clienta de OTRO negocio, cambiarle la contraseña le
+-- da al primer negocio la llave de su cuenta entera. Bloqueamos el caso:
+-- si el usuario tiene ficha en más de un negocio, no se le cambia la
+-- contraseña desde el mostrador; tiene que recuperarla por email.
+-- ─────────────────────────────────────────────────────────────────────
+create or replace function public.admin_set_client_password(
+  p_client_id uuid,
+  p_password  text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions, auth
+as $$
+declare
+  v_user_id uuid;
+begin
+  if not public.is_staff() then
+    raise exception 'Solo el equipo del negocio puede cambiar contraseñas'
+      using errcode = '42501';
+  end if;
+
+  if p_password is null or length(p_password) < 8 then
+    raise exception 'La contraseña necesita al menos 8 caracteres'
+      using errcode = '22023';
+  end if;
+
+  select c.user_id into v_user_id
+  from public.clients c
+  where c.id = p_client_id
+    and c.tenant_id = public.current_tenant_id();
+
+  if not found then
+    raise exception 'Ese cliente no es de tu negocio' using errcode = 'P0002';
+  end if;
+
+  if v_user_id is null then
+    raise exception 'Ese cliente todavía no tiene cuenta para entrar al portal'
+      using errcode = 'P0002';
+  end if;
+
+  if exists (select 1 from public.staff s where s.user_id = v_user_id) then
+    raise exception 'No se puede cambiar la contraseña de un miembro del equipo desde acá'
+      using errcode = '42501';
+  end if;
+
+  -- Identidad global: si es clienta de más de un negocio, cambiarle la
+  -- contraseña acá le tocaría la cuenta que usa en otros lados.
+  if (select count(*) from public.clients where user_id = v_user_id) > 1 then
+    raise exception 'Esta persona tiene cuenta en más de un negocio: por seguridad tiene que recuperar la contraseña por email, no se la puede cambiar desde acá'
+      using errcode = '42501';
+  end if;
+
+  update auth.users
+     set encrypted_password = crypt(p_password, gen_salt('bf')),
+         updated_at = now()
+   where id = v_user_id;
+
+  delete from auth.sessions where user_id = v_user_id;
+  delete from auth.refresh_tokens where user_id = v_user_id::text;
+end;
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- FIX 3 · Reuso de un token de un solo uso (MEDIUM, CWE-863)
+--
+-- `act_on_appointment_by_token` marcaba `used_at` al final pero nunca lo
+-- miraba al entrar. Si el negocio reabría una cita cancelada, el mismo link
+-- servía otra vez hasta que venciera. Ahora el token se rechaza apenas ya
+-- fue usado.
+-- ─────────────────────────────────────────────────────────────────────
+create or replace function public.act_on_appointment_by_token(
+  p_token  text,
+  p_action text
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_appointment_id uuid;
+  v_expires_at     timestamptz;
+  v_status         text;
+  v_new_status     text;
+  v_used_at        timestamptz;
+begin
+  if p_action not in ('confirm', 'cancel') then
+    raise exception 'Acción no soportada.';
+  end if;
+
+  select tok.appointment_id, tok.expires_at, a.status, tok.used_at
+    into v_appointment_id, v_expires_at, v_status, v_used_at
+    from public.appointment_tokens tok
+    join public.appointments a on a.id = tok.appointment_id
+   where tok.token = p_token;
+
+  if v_appointment_id is null then
+    raise exception 'Link inválido.';
+  end if;
+
+  if v_used_at is not null then
+    raise exception 'Este link ya fue utilizado.';
+  end if;
+
+  if v_expires_at < now() then
+    raise exception 'Este link venció.';
+  end if;
+
+  if v_status not in ('reserved', 'confirmed') then
+    raise exception 'Esta cita ya no se puede modificar.';
+  end if;
+
+  v_new_status := case when p_action = 'confirm' then 'confirmed' else 'cancelled' end;
+
+  if v_status = v_new_status then
+    return v_status;
+  end if;
+
+  update public.appointments
+     set status = v_new_status
+   where id = v_appointment_id;
+
+  -- Cancelar libera las sesiones de paquete que la cita había consumido.
+  if p_action = 'cancel' then
+    update public.package_items pi
+       set sessions_used = pi.sessions_used - 1
+      from public.appointments a
+     where a.id = v_appointment_id
+       and pi.package_id = a.package_id
+       and pi.sessions_used > 0
+       and pi.service_id in (
+         select service_id from public.appointment_services
+         where appointment_id = v_appointment_id
+       );
+
+    update public.packages pk
+       set status = 'active'
+      from public.appointments a
+     where a.id = v_appointment_id
+       and pk.id = a.package_id
+       and pk.status = 'completed';
+  end if;
+
+  update public.appointment_tokens
+     set used_at = now()
+   where token = p_token;
+
+  return v_new_status;
+end;
+$$;
+
+-- ─────────────────────────────────────────
+-- supabase/migrations/0009_book_appointment_rpc.sql
+-- ─────────────────────────────────────────
+
+-- =====================================================================
+-- Agendik · reserva de cita calculada en el servidor (fix vuln-0005, CWE-602)
+--
+-- Antes, el portal del cliente calculaba la duración de la cita en el
+-- navegador y el backend le creía: `createAppointment` recibía `durationMin`
+-- y `end_time` ya armados y los insertaba tal cual. Un cliente podía pedir
+-- servicios de 2 horas declarando 1 minuto, ocupar un minuto de la agenda y
+-- sobrevender al profesional, salteando la restricción anti-solapamiento
+-- (que solo mira el rango [start, end]).
+--
+-- Este RPC hace la reserva del lado del servidor: toma los servicios, lee su
+-- duración REAL de la tabla `services` (validando que sean del negocio del
+-- cliente), calcula la duración y la hora de fin, e inserta la cita y sus
+-- servicios en una sola operación. La duración deja de ser un dato que el
+-- cliente pueda elegir.
+-- =====================================================================
+
+create or replace function public.book_appointment(
+  p_professional_id uuid,
+  p_date            date,
+  p_start_time      time,
+  p_service_ids     uuid[],
+  p_package_id      uuid default null,
+  p_notes           text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_client_id uuid;
+  v_tenant_id uuid;
+  v_duration  int;
+  v_count     int;
+  v_appt_id   uuid;
+begin
+  v_client_id := public.current_client_id();
+  if v_client_id is null then
+    raise exception 'Necesitás una cuenta de cliente para reservar.'
+      using errcode = '42501';
+  end if;
+  v_tenant_id := public.current_tenant_id();
+
+  if p_service_ids is null or array_length(p_service_ids, 1) is null then
+    raise exception 'Elegí al menos un servicio.' using errcode = '22023';
+  end if;
+
+  -- La duración sale de la base, no del cliente. Y todos los servicios tienen
+  -- que existir y ser de este negocio: si falta alguno, no reservamos.
+  select coalesce(sum(duration_min), 0), count(*)
+    into v_duration, v_count
+    from public.services
+   where id = any (p_service_ids)
+     and tenant_id = v_tenant_id;
+
+  if v_count <> array_length(p_service_ids, 1) then
+    raise exception 'Alguno de los servicios elegidos no es válido.'
+      using errcode = '22023';
+  end if;
+  if v_duration <= 0 then
+    raise exception 'La duración de los servicios no es válida.'
+      using errcode = '22023';
+  end if;
+
+  -- El profesional tiene que ser de este negocio.
+  if not exists (
+    select 1 from public.professionals
+    where id = p_professional_id and tenant_id = v_tenant_id
+  ) then
+    raise exception 'Ese profesional no es de este negocio.'
+      using errcode = '22023';
+  end if;
+
+  -- La restricción de exclusión GiST sobre appointments rechaza el
+  -- solapamiento acá adentro; el error 23P01 sube al frontend.
+  insert into public.appointments (
+    tenant_id, client_id, professional_id, date, start_time, end_time,
+    duration_min, package_id, status, notes, source
+  )
+  values (
+    v_tenant_id, v_client_id, p_professional_id, p_date, p_start_time,
+    p_start_time + make_interval(mins => v_duration), v_duration,
+    p_package_id, 'reserved', coalesce(p_notes, ''), 'portal'
+  )
+  returning id into v_appt_id;
+
+  insert into public.appointment_services (appointment_id, service_id)
+  select v_appt_id, unnest(p_service_ids);
+
+  if p_package_id is not null then
+    perform public.consume_package_sessions(p_package_id, p_service_ids);
+  end if;
+
+  return v_appt_id;
+end;
+$$;
+
+grant execute on function public.book_appointment(uuid, date, time, uuid[], uuid, text) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Cerrar el vector por API directa
+--
+-- No alcanza con que el frontend use el RPC: mientras el cliente conserve el
+-- permiso de INSERT directo sobre `appointments`, un atacante puede saltear el
+-- navegador y crear la cita a mano con una duración falsa. Quitamos ese permiso
+-- para el CLIENTE: su única forma de reservar pasa a ser `book_appointment`
+-- (que corre como definer y calcula la duración). El equipo del negocio no se
+-- toca: sigue insertando por las políticas `_staff`.
+-- ─────────────────────────────────────────────────────────────────────
+drop policy if exists appointments_insert_own on public.appointments;
+drop policy if exists appointment_services_insert_own on public.appointment_services;
+
+
+-- ─────────────────────────────────────────
 -- supabase/seed.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ─────────────────────────────────────────
 
 -- =====================================================================
 -- Agendik · datos de ejemplo

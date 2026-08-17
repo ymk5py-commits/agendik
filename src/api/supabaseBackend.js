@@ -343,46 +343,31 @@ export const supabaseBackend = {
     return out
   },
 
-  async createAppointment({ clientId, professionalId, date, startTime, serviceIds, packageId, notes, durationMin, tenantId }) {
-    const endTime = addMinutesToTime(startTime, durationMin)
-
-    const { data, error } = await supabase
-      .from('appointments')
-      .insert({
-        tenant_id: tenantId,
-        client_id: clientId,
-        professional_id: professionalId,
-        date,
-        start_time: startTime,
-        end_time: endTime,
-        duration_min: durationMin,
-        package_id: packageId || null,
-        status: 'reserved',
-        notes: notes || '',
-        source: 'portal',
-      })
-      .select('id')
-      .single()
+  async createAppointment({ professionalId, date, startTime, serviceIds, packageId, notes }) {
+    // La duración y la hora de fin las calcula el servidor (RPC book_appointment)
+    // a partir de los servicios reales: el cliente no puede declarar una duración
+    // menor para ocupar menos agenda de la que corresponde.
+    const { data: apptId, error } = await supabase.rpc('book_appointment', {
+      p_professional_id: professionalId,
+      p_date: date,
+      p_start_time: startTime,
+      p_service_ids: serviceIds,
+      p_package_id: packageId || null,
+      p_notes: notes || null,
+    })
 
     if (error && /overlap|exclusion|conflict|23P01/i.test(`${error.message} ${error.code}`)) {
       throw new Error('Ese horario acaba de ocuparse. Elegí otro, por favor.')
     }
-    fail(error, 'No pudimos crear la cita.')
-
-    const { error: linkError } = await supabase
-      .from('appointment_services')
-      .insert(serviceIds.map((sid) => ({ appointment_id: data.id, service_id: sid })))
-    if (linkError) {
-      await supabase.from('appointments').delete().eq('id', data.id)
-      fail(linkError, 'No pudimos asociar los servicios a la cita.')
+    if (error && /servicio|duración|profesional/i.test(error.message || '')) {
+      throw new Error('Revisá los servicios y el profesional elegidos.')
     }
-
-    if (packageId) await supabase.rpc('consume_package_sessions', { p_package_id: packageId, p_service_ids: serviceIds })
+    fail(error, 'No pudimos crear la cita.')
 
     const { data: full, error: readError } = await supabase
       .from('appointments')
       .select(APPT_SELECT)
-      .eq('id', data.id)
+      .eq('id', apptId)
       .single()
     fail(readError, 'La cita se creó pero no pudimos leerla.')
     return mapAppointment(full)
