@@ -1,39 +1,55 @@
-# Auditoría de seguridad — Agendik (portal de agendamiento de citas)
+# Auditoría de seguridad — Agendik, ahora multi-negocio (SaaS)
 
-Es una SPA React (Vite) sobre Supabase self-hosted (Postgres + GoTrue + PostgREST).
-No hay backend propio: **toda la seguridad vive en la base**, en políticas RLS y en
-funciones `security definer`. El cliente habla con Supabase directo desde el navegador
-con la clave pública (anon). Cualquiera puede leer el bundle y llamar a la API con esa
-clave, así que la garantía real tiene que estar en Postgres, no en el frontend.
+SPA React (Vite) sobre Supabase self-hosted. **No hay backend propio**: el navegador habla
+directo con Postgres vía PostgREST usando la clave pública (anon), así que toda la
+seguridad vive en la base — políticas RLS y funciones `security definer`. Cualquiera puede
+leer el bundle y llamar la API con esa clave: ocultar cosas en el frontend no protege nada.
 
-## Dónde mirar con más cuidado
+La app pasó de un solo negocio a **varios negocios en la misma instalación**. Ese cambio es
+el foco de esta auditoría.
 
-1. **Políticas RLS** (`supabase/migrations/0002_rls.sql`, `0004_admin.sql`,
-   `0005_admin_write.sql`, `0006_staff_profile.sql`): buscá si un cliente autenticado
-   puede leer o modificar datos de OTRO cliente o de OTRO tenant. Multi-tenant: el
-   aislamiento entre negocios (`tenant_id`) es crítico. ¿Hay alguna tabla con RLS
-   habilitado pero sin política que la cubra, o un `grant` más amplio que sus políticas?
+## Modelo de permisos (lo que hay que romper)
 
-2. **Funciones `security definer`** (`0003_functions.sql`, `0004_admin.sql`,
-   `0005_admin_write.sql`, `0007_admin_client_password.sql`): corren con privilegios
-   elevados. Verificá `search_path` fijo, que validen permisos ellas mismas
-   (`is_staff()`, `current_tenant_id()`), y que no permitan escalar privilegios,
-   tocar `auth.users` de otro, ni saltar el aislamiento de tenant. `admin_set_client_password`
-   cambia contraseñas: ¿puede un empleado usarla contra el dueño u otro tenant?
+- **Cliente**: pertenece a UN negocio (`clients.tenant_id`). Solo debe ver lo suyo.
+- **Staff / owner**: pertenece a UN negocio (`staff.tenant_id`). Administra solo ese.
+- **Dueño de la plataforma** (`platform_admins`): puede crear negocios. Está por encima.
+- Invariante que sostiene todo: **un usuario pertenece a un solo negocio**. Las funciones
+  `current_tenant_id()`, `current_client_id()` e `is_staff()` dependen de eso.
 
-3. **Acciones por token** (`get_appointment_by_token`, `act_on_appointment_by_token`):
-   son accesibles por `anon`. ¿El token es adivinable/enumerable? ¿Filtra datos de la cita
-   a cualquiera que tenga el link? ¿Permite actuar sobre citas ajenas?
+## Dónde buscar
 
-4. **Manejo de la clave anon vs service_role**: confirmá que ninguna variable `VITE_*`
-   contenga secretos (service_role, secret key). Vite publica todo `VITE_*` en el bundle.
+1. **Fuga entre negocios.** ¿Puede un cliente o un staff del negocio A ver o modificar
+   datos del negocio B? Mirá `0002_rls.sql`, `0004_admin.sql`, `0005_admin_write.sql`.
+   Atención a `current_tenant_id()` en `0008_security_fixes.sql`: resuelve `staff` antes
+   que `clients` justamente para frenar una escalada. ¿Se puede volver a torcer?
 
-5. **Frontend** (`src/`): XSS (render de datos del usuario), validación que solo vive en
-   el cliente y no en la base, control de acceso a rutas de admin (`/agenda`, `/clientes`,
-   etc.) que dependa solo de React y no de RLS.
+2. **Escalada a dueño de plataforma.** `0010_platform_admins.sql` y
+   `0011_create_business.sql`. ¿Puede alguien que no es dueño de plataforma llamar
+   `create_business` o `list_businesses`? ¿Insertarse en `platform_admins`?
+
+3. **`create_business` crea usuarios en `auth.users` desde SQL** (`0011`). Es la función
+   más peligrosa del sistema: corre como `security definer` y toca el esquema de auth.
+   ¿Se puede abusar para crear un usuario con privilegios, pisar un usuario existente,
+   inyectar valores, o quedarse con la cuenta de otro? ¿Valida bien el email y el slug?
+
+4. **Reserva de citas** (`0009_book_appointment_rpc.sql`, RPC `book_appointment`).
+   Calcula la duración en el servidor a propósito. ¿Se puede reservar en un negocio ajeno,
+   con servicios de otro negocio, o saltar la restricción anti-solapamiento?
+
+5. **Cambio de contraseña de clientes** (`0008`, `admin_set_client_password`). ¿Puede un
+   staff usarla contra alguien de otro negocio, contra otro staff, o contra el dueño de
+   la plataforma?
+
+6. **Portal público por slug** (`src/context/TenantContext.jsx`, rutas `/n/:slug`).
+   El registro asocia al cliente con el negocio de la URL. ¿Se puede manipular para
+   quedar en un negocio ajeno o para enumerar negocios/datos?
+
+7. **Secretos en el frontend**: ninguna variable `VITE_*` debe contener la clave de
+   servicio (`service_role` / `sb_secret`). Vite las publica en el bundle.
 
 ## Qué entregar
 
-Por cada hallazgo: severidad, archivo y línea, cómo se explota, y el fix concreto
-(idealmente el SQL o el diff). Priorizá lo que rompe el aislamiento entre clientes o
-entre negocios, y la escalada de privilegios cliente → staff/owner.
+Por hallazgo: severidad, archivo y línea, cómo se explota (pasos concretos) y el fix.
+Priorizá lo que rompe el aislamiento entre negocios y la escalada de privilegios
+(cliente → staff → dueño de plataforma). Si algo parece vulnerable pero una política RLS
+o una función ya lo frena, decilo: importa más un hallazgo real que muchos dudosos.
