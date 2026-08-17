@@ -39,12 +39,23 @@ async function conReintento(consulta) {
   return primera
 }
 
-async function fetchTenant() {
+const TENANT_COLS = 'id, slug, business_name, phone'
+const mapTenant = (r) => ({ id: r.id, slug: r.slug, businessName: r.business_name, phone: r.phone })
+
+/**
+ * El negocio del usuario logueado, según su propia ficha.
+ *
+ * Antes esto traía siempre el negocio de `VITE_DEFAULT_TENANT`, lo que estaba
+ * bien cuando había uno solo: con varios, al dueño de un negocio le aparecía
+ * el nombre de otro en el encabezado.
+ */
+async function fetchTenantById(tenantId) {
+  if (!tenantId) return null
   const { data, error } = await conReintento(() =>
-    supabase.from('tenants').select('id, slug, business_name, phone').eq('slug', DEFAULT_TENANT).single(),
+    supabase.from('tenants').select(TENANT_COLS).eq('id', tenantId).single(),
   )
   fail(error, 'No pudimos cargar los datos del negocio.')
-  return { id: data.id, slug: data.slug, businessName: data.business_name, phone: data.phone }
+  return mapTenant(data)
 }
 
 async function fetchClient(userId) {
@@ -143,28 +154,49 @@ const APPT_SELECT = `
 export const supabaseBackend = {
   mode: 'supabase',
 
+  /**
+   * El negocio de un portal público (/n/<slug>).
+   *
+   * Devuelve null si el slug no existe, para poder mostrar "no encontramos
+   * este negocio" en vez de un error genérico. `tenants` tiene lectura
+   * pública justamente para esto: hay que poder resolverlo sin estar logueado.
+   */
+  async getTenantBySlug(slug) {
+    if (!slug) return null
+    const { data, error } = await supabase
+      .from('tenants')
+      .select(TENANT_COLS)
+      .eq('slug', slug)
+      .maybeSingle()
+    if (error) return null
+    return data ? mapTenant(data) : null
+  },
+
   async signIn({ email, password }) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     })
     fail(error, 'No pudimos iniciar sesión.')
-    const [client, staff, tenant, isPlatformAdmin] = await Promise.all([
+    const [client, staff, isPlatformAdmin] = await Promise.all([
       fetchClient(data.user.id),
       fetchStaff(data.user.id),
-      fetchTenant(),
       fetchIsPlatformAdmin(),
     ])
     // El equipo del negocio no tiene ficha de cliente: entra por la de staff.
     if (!client && !staff) throw new Error('Tu cuenta todavía no tiene una ficha asociada.')
+    const tenant = await fetchTenantById(staff?.tenantId || client?.tenantId)
     if (client && !staff && client.status === 'pending') {
       throw new Error('Tu cuenta está pendiente de aprobación del negocio.')
     }
     return { user: { id: data.user.id, email: data.user.email }, client, staff, tenant, isPlatformAdmin }
   },
 
-  async signUp({ name, email, phone, password }) {
-    const tenant = await fetchTenant()
+  async signUp({ name, email, phone, password, tenantId }) {
+    // El negocio lo define el portal donde se está registrando (/n/<slug>),
+    // no una variable de entorno: si no, todos caerían en el mismo.
+    const tenant = await fetchTenantById(tenantId)
+    if (!tenant) throw new Error('No pudimos identificar el negocio. Volvé a abrir el link que te pasaron.')
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
@@ -199,13 +231,13 @@ export const supabaseBackend = {
   async restoreSession() {
     const { data } = await supabase.auth.getSession()
     if (!data.session) return null
-    const [client, staff, tenant, isPlatformAdmin] = await Promise.all([
+    const [client, staff, isPlatformAdmin] = await Promise.all([
       fetchClient(data.session.user.id),
       fetchStaff(data.session.user.id),
-      fetchTenant(),
       fetchIsPlatformAdmin(),
     ])
     if (!client && !staff) return null
+    const tenant = await fetchTenantById(staff?.tenantId || client?.tenantId)
     return {
       user: { id: data.session.user.id, email: data.session.user.email },
       client,

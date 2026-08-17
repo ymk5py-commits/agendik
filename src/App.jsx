@@ -2,6 +2,8 @@ import { Component, Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { TenantProvider } from './context/TenantContext'
+import { DEFAULT_TENANT } from './api/supabaseClient'
 import AppLayout from './components/layout/AppLayout'
 import { PageLoader } from './components/ui'
 import Landing from './pages/Landing'
@@ -129,7 +131,39 @@ export default function App() {
           <ScrollToTop />
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
+              {/*
+                La raíz ya no es "el negocio": es un atajo al negocio por
+                defecto, para no romper los links que ya circulan.
+              */}
+              <Route path="/" element={<Navigate to={`/n/${DEFAULT_TENANT}`} replace />} />
+
+              {/*
+                Portal público de cada negocio. El slug de la dirección define
+                de qué negocio se está hablando, y es lo que permite que varios
+                convivan en la misma instalación.
+              */}
+              <Route
+                path="/n/:slug"
+                element={
+                  <TenantProvider>
+                    <PublicRoute><Landing /></PublicRoute>
+                  </TenantProvider>
+                }
+              />
+              <Route
+                path="/n/:slug/ingresar"
+                element={
+                  <TenantProvider>
+                    <PublicRoute><Login /></PublicRoute>
+                  </TenantProvider>
+                }
+              />
+
+              {/*
+                Login sin negocio en la dirección: sirve para el equipo y para
+                quien ya tiene cuenta (su negocio sale de su ficha, no de la
+                URL). Para registrarse hace falta el link del negocio.
+              */}
               <Route path="/ingresar" element={<PublicRoute><Login /></PublicRoute>} />
 
               <Route path="/dashboard" element={<ClientRoute><Dashboard /></ClientRoute>} />

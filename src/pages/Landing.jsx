@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTenant } from '../context/TenantContext'
 import {
   ArrowRight,
   BellRing,
@@ -55,12 +56,35 @@ const STEPS = [
 ]
 
 export default function Landing() {
+  const { tenant, slug, loading } = useTenant()
+
+  if (loading) {
+    return <div className="min-h-dvh bg-sand-50" />
+  }
+
+  // El link que le pasaron apunta a un negocio que no existe (o cambió de
+  // dirección). Mejor decirlo que mostrar un portal vacío.
+  if (!tenant) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-sand-50 px-6 text-center">
+        <Logo subtitle="Portal de citas" />
+        <h1 className="mt-4 font-display text-2xl font-bold text-sand-900">
+          No encontramos este negocio
+        </h1>
+        <p className="max-w-sm text-sm text-sand-500">
+          Revisá el link que te pasaron: la dirección <strong>{slug}</strong> no corresponde a
+          ningún negocio.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-dvh bg-sand-50">
       <header className="border-b border-sand-200 bg-white">
         <div className="container-app flex h-16 items-center justify-between">
-          <Logo subtitle="Portal de citas" />
-          <Link to="/ingresar" className="btn-primary">
+          <Logo subtitle={tenant.businessName} />
+          <Link to={`/n/${slug}/ingresar`} className="btn-primary">
             Ingresar
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -98,7 +122,7 @@ export default function Landing() {
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link to="/ingresar" className="btn-accent px-6 py-3 text-base">
+                <Link to={`/n/${slug}/ingresar`} className="btn-accent px-6 py-3 text-base">
                   Ingresar a mi cuenta
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
@@ -180,7 +204,7 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            <Link to="/ingresar" className="btn-accent mt-8 px-6 py-3 text-base">
+            <Link to={`/n/${slug}/ingresar`} className="btn-accent mt-8 px-6 py-3 text-base">
               Ingresar a Agendik
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
@@ -190,7 +214,7 @@ export default function Landing() {
 
       <footer className="border-t border-sand-200 bg-white py-8">
         <div className="container-app flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <Logo subtitle="Portal de citas" />
+          <Logo subtitle={tenant.businessName} />
           <p className="text-xs text-sand-500">Horarios en zona América/Asunción</p>
         </div>
       </footer>

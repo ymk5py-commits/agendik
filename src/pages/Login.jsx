@@ -6,6 +6,7 @@ import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { ArrowLeft, CalendarCheck, Eye, EyeOff, Layers, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useTenant } from '../context/TenantContext'
 import { Field, Spinner } from '../components/ui'
 import { Logo } from '../components/Logo'
 import { isDemoMode } from '../api/backend'
@@ -212,6 +213,8 @@ function LoginForm() {
 
 function RegisterForm({ onDone }) {
   const { register: signUp } = useAuth()
+  // El negocio sale del portal donde se está registrando (/n/<slug>).
+  const { tenant, loading: cargandoNegocio } = useTenant()
   const [showPassword, setShowPassword] = useState(false)
 
   const {
@@ -223,12 +226,26 @@ function RegisterForm({ onDone }) {
 
   const onSubmit = async ({ confirmPassword, ...values }) => {
     try {
-      const res = await signUp(values)
+      const res = await signUp({ ...values, tenantId: tenant?.id })
       toast.success(res?.message || 'Cuenta creada.')
       onDone()
     } catch (err) {
       setError('root', { message: err.message })
     }
+  }
+
+  // Sin negocio en la dirección no se puede crear una cuenta: no sabríamos a
+  // qué negocio asociarla. Pasa si alguien entra directo a /ingresar.
+  if (!cargandoNegocio && !tenant) {
+    return (
+      <div className="card">
+        <h1 className="font-display text-2xl font-bold text-sand-900">Creá tu cuenta</h1>
+        <p className="mt-2 text-sm text-sand-500">
+          Para registrarte entrá con el link que te pasó el negocio, que se ve así:{' '}
+          <span className="whitespace-nowrap font-medium text-sand-700">/n/nombre-del-negocio</span>.
+        </p>
+      </div>
+    )
   }
 
   return (

@@ -29,6 +29,11 @@ const uid = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`
 export const demoBackend = {
   mode: 'demo',
 
+  async getTenantBySlug() {
+    // En demo hay un solo negocio y no hay portales por slug.
+    return load().tenant
+  },
+
   async signIn({ email, password }) {
     await wait()
     const db = load()
