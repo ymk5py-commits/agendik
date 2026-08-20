@@ -89,6 +89,12 @@ los emails que manda la app se ven en Mailpit, `http://127.0.0.1:54324`.
 El `config.toml` tiene apagados `analytics`, `storage` y `realtime`: la app no los
 usa y `analytics` arrastraba a los demás contenedores a estado *unhealthy*.
 
+### Usar el servidor Mac en vez de Docker local
+
+Si la base ya está corriendo en el servidor Mac, no hace falta levantar Docker
+acá: [`docs/servidor-mac/`](docs/servidor-mac/README.md) explica cómo conectar
+la Ubuntu por Tailscale y apuntar la app a esa base.
+
 ---
 
 ## Conectar Supabase en la nube
