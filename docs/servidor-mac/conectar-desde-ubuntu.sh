@@ -11,8 +11,9 @@
 # y el cliente de escritorio remoto. Se puede correr las veces que quieras.
 #
 # Opciones:
-#   --check   solo diagnóstico: no instala ni modifica nada
-#   -y        contesta que sí a todo (para dejarlo andando sin preguntas)
+#   --check     solo diagnóstico: no instala ni modifica nada
+#   --esperar   si la Mac está dormida, queda esperando a que vuelva a la red
+#   -y          contesta que sí a todo (para dejarlo andando sin preguntas)
 #
 # El servidor se puede cambiar por variables de entorno:
 #   MAC_IP=100.82.224.88  MAC_USER=croman  MAC_NAME=macs-macbook-air
@@ -27,9 +28,11 @@ SCRIPT_MAC='/Users/croman/Desktop/SERVIDOR MAC/configurar-servidor.sh'
 
 CHECK_ONLY=0
 AUTO=0
+ESPERAR=0
 for arg in "$@"; do
   case "$arg" in
     --check|--solo-chequeo) CHECK_ONLY=1 ;;
+    --esperar|--wait)       ESPERAR=1 ;;
     -y|--yes|--si)          AUTO=1 ;;
     -h|--help)              awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0 ;;
     *) echo "Opción desconocida: $arg (probá --help)" >&2; exit 1 ;;
@@ -52,6 +55,19 @@ ask() {  # ask "pregunta"  → 0 si el usuario dice que sí
 
 # ¿Hay algo escuchando en ese puerto de la Mac? Sin depender de nc.
 probe() { timeout 3 bash -c "exec 3<>/dev/tcp/$MAC_IP/$1" 2>/dev/null; }
+
+# La línea de la Mac en `tailscale status`, si figura.
+mac_linea() {
+  tailscale status 2>/dev/null \
+    | grep -iE "(^|[[:space:]])($MAC_NAME|$MAC_IP)([[:space:]]|$)" | head -1
+}
+
+# 0 solo si la Mac está en la red Y despierta.
+mac_en_linea() {
+  local linea
+  linea=$(mac_linea)
+  [ -n "$linea" ] && ! printf '%s' "$linea" | grep -qi 'offline'
+}
 
 # puerto|nombre|cómo se usa
 SERVICIOS=(
@@ -103,12 +119,54 @@ else
   ok "sesión iniciada"
 fi
 
-if tailscale status 2>/dev/null | grep -qiE "(^|[[:space:]])($MAC_NAME|$MAC_IP)([[:space:]]|$)"; then
-  ok "la Mac aparece en la red"
-else
+if [ "$ESPERAR" = 1 ] && ! mac_en_linea; then
+  say "Esperando a que la Mac vuelva a la red (Ctrl-C para cortar)"
+  info "mientras tanto andá a despertarla: abrí la tapa y, si la pide,"
+  info "escribí la contraseña de FileVault en la pantalla de arranque"
+  printf '    '
+  while ! mac_en_linea; do printf '.'; sleep 5; done
+  printf '\n'
+  ok "volvió"
+fi
+
+# Que la Mac figure en la lista no alcanza: Tailscale la sigue mostrando cuando
+# está dormida, con un "offline, last seen ...". Ahí no hay nada que probar.
+MAC_LINEA=$(mac_linea)
+
+if [ -z "$MAC_LINEA" ]; then
   bad "la Mac NO aparece en la lista de máquinas"
-  info "puede estar apagada, sin sesión iniciada, o logueada con otra cuenta"
+  info "puede estar apagada, sin Tailscale corriendo, o logueada con otra cuenta"
   info "revisá con: tailscale status"
+  exit 1
+elif printf '%s' "$MAC_LINEA" | grep -qi 'offline'; then
+  bad "la Mac está OFFLINE · $(printf '%s' "$MAC_LINEA" | grep -oi 'offline.*')"
+  cat <<AYUDA
+
+    Se cayó de la red. Casi siempre es una de estas tres:
+
+      · se durmió (tapa cerrada o inactividad) — lo más común mientras no se
+        haya corrido "configurar-servidor.sh", que es justamente lo que apaga
+        el sueño con pmset
+      · corte de luz: se prendió sola pero quedó esperando la contraseña de
+        FileVault en la pantalla de arranque
+      · está apagada del todo
+
+    Las tres se resuelven igual y solo de una manera: yendo hasta la Mac,
+    abriendo la tapa y, si hace falta, escribiendo la contraseña. Dormida no
+    hay acceso remoto posible: no está en la red.
+
+    Apenas la despiertes, dejá el sueño desactivado para que no vuelva a pasar:
+
+      sudo bash "$SCRIPT_MAC"
+
+    Para enterarte desde acá en cuanto vuelva, dejá esto corriendo:
+
+      $0 --esperar
+
+AYUDA
+  exit 1
+else
+  ok "la Mac está en línea"
 fi
 
 # ---------------------------------------------------------------------
@@ -131,11 +189,12 @@ done
 
 if [ "$VIVOS" = 0 ]; then
   say "No responde ningún servicio"
-  info "La Mac no está alcanzable. Las causas más probables:"
-  info "  · está apagada o suspendida"
-  info "  · hubo corte de luz y quedó esperando la contraseña de FileVault en la"
-  info "    pantalla de arranque — hasta escribirla no arranca ningún servicio"
-  info "  · Tailscale no arrancó en la Mac"
+  info "Raro: la Mac figura en línea, así que llega hasta ella pero no hay nada"
+  info "escuchando — ni siquiera SSH. Lo más probable:"
+  info "  · la sesión de macOS no está iniciada (quedó en la pantalla de login):"
+  info "    los servicios de usuario no arrancan hasta que entres"
+  info "  · Docker todavía no levantó: recién prendida tarda un par de minutos"
+  info "  · el firewall de macOS está bloqueando las conexiones entrantes"
   exit 1
 fi
 

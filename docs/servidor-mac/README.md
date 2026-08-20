@@ -43,6 +43,13 @@ Para solo mirar si el servidor está vivo, sin instalar ni tocar nada:
 bash docs/servidor-mac/conectar-desde-ubuntu.sh --check
 ```
 
+Y si la Mac está dormida, `--esperar` se queda avisando en cuanto vuelve a la
+red — útil para dejarlo corriendo mientras vas a despertarla:
+
+```bash
+bash docs/servidor-mac/conectar-desde-ubuntu.sh --esperar
+```
+
 Lo que sigue es lo mismo, paso a paso y a mano.
 
 ---
@@ -69,6 +76,12 @@ alcanza desde cualquier lugar del mundo, sin abrir nada en el router.
 Lo más rápido es el navegador: abrí http://100.82.224.88:5678. Si carga n8n,
 la Mac está despierta y en la red — el resto de los servicios también van a
 andar.
+
+Ojo con `tailscale status`: la Mac figura en la lista aunque esté caída. Lo que
+importa es el final de la línea. `offline, last seen 28m ago` significa que se
+durmió o se apagó, y ahí no hay nada que intentar desde Ubuntu — hay que ir a
+despertarla. Mientras no se haya corrido el script del paso 3, esto va a pasar
+cada vez que se cierre la tapa.
 
 Desde la terminal:
 
@@ -184,8 +197,9 @@ puede apuntar ahí. Para producción va el Supabase de la nube o el VPS de
 
 | Síntoma | Qué pasa | Qué hacer |
 |---|---|---|
-| `tailscale status` no lista `macs-macbook-air` | La Mac está apagada, sin sesión iniciada, o Tailscale no arrancó ahí | Ver punto siguiente |
-| Ningún puerto responde, pero la Mac aparece en la lista | Se cortó la luz y quedó esperando la contraseña de FileVault en la pantalla de arranque | Hay que ir hasta la Mac y escribirla una vez. Hasta entonces no arranca ningún servicio |
+| `tailscale status` dice `macs-macbook-air … offline, last seen 28m ago` | La Mac se durmió, se apagó, o se cortó la luz y quedó esperando la contraseña de FileVault. Sigue figurando en la lista: Tailscale recuerda las máquinas aunque estén caídas — figurar no es estar viva | Ir hasta la Mac y despertarla; dormida no hay acceso remoto posible, no está en la red. Y correr el script del paso 3, que es lo que evita que se duerma otra vez |
+| No aparece `macs-macbook-air` en la lista | Tailscale nunca arrancó en la Mac, o quedó logueada con otra cuenta | Revisar en la Mac que Tailscale esté corriendo con la misma cuenta |
+| Figura en línea pero no responde ningún puerto, ni siquiera SSH | La sesión de macOS no está iniciada, o Docker todavía no levantó | Entrar a la sesión en la Mac. Recién prendida, Docker tarda un par de minutos en tener todo arriba |
 | SSH da `Connection refused` | Sesión remota apagada | Paso 3: correr el script en la Mac una vez |
 | VNC da `Connection refused` | Compartir pantalla apagado | Ídem — es el mismo script |
 | n8n / CRM / Studio no cargan pero SSH sí | Se cayó algún contenedor | `ssh mac 'docker ps'` y `ssh mac 'docker restart <nombre>'` |
