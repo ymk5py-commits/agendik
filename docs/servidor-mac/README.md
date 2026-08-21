@@ -64,20 +64,36 @@ disablesleep 1` por sí solo **no alcanza en un Apple Silicon**: macOS tiene
 varios modos de suspensión distintos y ese apaga uno solo, y encima algunas
 actualizaciones lo resetean.
 
+Sin clonar nada, de una sola pegada desde la Ubuntu:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ymk5py-commits/agendik/refs/heads/claude/ubuntu-mac-server-connection-tfkjvd/docs/servidor-mac/no-dormir.sh \
+  | ssh croman@100.82.224.88 'cat > /tmp/no-dormir.sh' \
+  && ssh -t croman@100.82.224.88 'sudo bash /tmp/no-dormir.sh'
+```
+
+O si ya tenés el repo clonado:
+
 ```bash
 scp docs/servidor-mac/no-dormir.sh croman@100.82.224.88:/tmp/
 ssh -t croman@100.82.224.88 'sudo bash /tmp/no-dormir.sh'
 ```
 
-Se corre remoto desde la Ubuntu, no hace falta ir hasta la Mac. Va en dos
-pasos a propósito: `sudo` pide la contraseña por la misma terminal por la que
-le llegaría el script, así que mandárselo por stdin haría que se coma la
-primera línea creyendo que es la clave. Apaga todos los
+Se corre entero desde la Ubuntu, no hace falta ir hasta la Mac. Apaga todos los
 modos de suspensión (`sleep`, `disksleep`, `standby`, `autopoweroff`,
 `hibernatemode`, `powernap`), deja la pantalla apagándose a los 5 minutos para
 ahorrar energía, y instala un `caffeinate` como LaunchDaemon: cubre lo que pmset
 no alcanza y arranca solo en cada reinicio. Las claves que no existan en este
 Mac se saltean sin romper nada.
+
+Son dos `ssh` a propósito, no uno. El primero deja el archivo en la Mac **sin**
+`sudo`, así nadie pide contraseña y el script puede viajar por stdin; el segundo
+lo ejecuta con `-t`, para que `sudo` sí pueda pedirla por la terminal. Mandarle
+el script por stdin *a* `sudo` no funciona: se comería la primera línea creyendo
+que es la clave.
+
+La URL apunta a la rama del PR. Cuando esto esté en `main`, cambiá
+`refs/heads/claude/ubuntu-mac-server-connection-tfkjvd` por `refs/heads/main`.
 
 **Tiene que quedar enchufada.** Con la tapa cerrada y a batería macOS se duerme
 igual, por debajo de lo que estos ajustes controlan — y además la batería se
