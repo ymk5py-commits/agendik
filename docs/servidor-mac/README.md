@@ -50,7 +50,50 @@ red — útil para dejarlo corriendo mientras vas a despertarla:
 bash docs/servidor-mac/conectar-desde-ubuntu.sh --esperar
 ```
 
+Y si el problema es que la Mac se duerme al cerrar la tapa, eso lo arregla
+`no-dormir.sh` — está en su propia sección acá abajo.
+
 Lo que sigue es lo mismo, paso a paso y a mano.
+
+---
+
+## Que la Mac no se duerma con la tapa cerrada
+
+Si el servidor "desaparece" cada vez que cerrás la tapa, es esto. `pmset -a
+disablesleep 1` por sí solo **no alcanza en un Apple Silicon**: macOS tiene
+varios modos de suspensión distintos y ese apaga uno solo, y encima algunas
+actualizaciones lo resetean.
+
+```bash
+ssh -t croman@100.82.224.88 'sudo bash -s' < docs/servidor-mac/no-dormir.sh
+```
+
+Se corre remoto desde la Ubuntu, no hace falta ir hasta la Mac. Apaga todos los
+modos de suspensión (`sleep`, `disksleep`, `standby`, `autopoweroff`,
+`hibernatemode`, `powernap`), deja la pantalla apagándose a los 5 minutos para
+ahorrar energía, y instala un `caffeinate` como LaunchDaemon: cubre lo que pmset
+no alcanza y arranca solo en cada reinicio. Las claves que no existan en este
+Mac se saltean sin romper nada.
+
+**Tiene que quedar enchufada.** Con la tapa cerrada y a batería macOS se duerme
+igual, por debajo de lo que estos ajustes controlan — y además la batería se
+termina. El script avisa si la encuentra desenchufada.
+
+Si aun así se vuelve a caer, preguntale a macOS por qué se durmió. El motivo
+está en su propio registro:
+
+```bash
+ssh croman@100.82.224.88 "pmset -g log | grep -iE 'Sleep.*due to' | tail -20"
+```
+
+| Lo que dice el log | Qué pasó |
+|---|---|
+| `Clamshell Sleep` | La tapa: algo pisó el `disablesleep` |
+| `Idle Sleep` | Inactividad: el `caffeinate` no está corriendo |
+| `Low Power Sleep` | Se quedó sin batería — enchufala |
+| `Maintenance Sleep` | Power Nap: quedó encendido |
+
+Para revertirlo: `sudo bash no-dormir.sh --revertir`.
 
 ---
 
@@ -80,8 +123,8 @@ andar.
 Ojo con `tailscale status`: la Mac figura en la lista aunque esté caída. Lo que
 importa es el final de la línea. `offline, last seen 28m ago` significa que se
 durmió o se apagó, y ahí no hay nada que intentar desde Ubuntu — hay que ir a
-despertarla. Mientras no se haya corrido el script del paso 3, esto va a pasar
-cada vez que se cierre la tapa.
+despertarla. Si esto pasa cada vez que cerrás la tapa, te falta correr
+`no-dormir.sh` (sección de arriba).
 
 Desde la terminal:
 
