@@ -65,10 +65,14 @@ varios modos de suspensión distintos y ese apaga uno solo, y encima algunas
 actualizaciones lo resetean.
 
 ```bash
-ssh -t croman@100.82.224.88 'sudo bash -s' < docs/servidor-mac/no-dormir.sh
+scp docs/servidor-mac/no-dormir.sh croman@100.82.224.88:/tmp/
+ssh -t croman@100.82.224.88 'sudo bash /tmp/no-dormir.sh'
 ```
 
-Se corre remoto desde la Ubuntu, no hace falta ir hasta la Mac. Apaga todos los
+Se corre remoto desde la Ubuntu, no hace falta ir hasta la Mac. Va en dos
+pasos a propósito: `sudo` pide la contraseña por la misma terminal por la que
+le llegaría el script, así que mandárselo por stdin haría que se coma la
+primera línea creyendo que es la clave. Apaga todos los
 modos de suspensión (`sleep`, `disksleep`, `standby`, `autopoweroff`,
 `hibernatemode`, `powernap`), deja la pantalla apagándose a los 5 minutos para
 ahorrar energía, y instala un `caffeinate` como LaunchDaemon: cubre lo que pmset

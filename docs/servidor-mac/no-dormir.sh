@@ -13,7 +13,8 @@
 #
 # O remoto desde la Ubuntu, sin levantarse:
 #
-#   ssh -t croman@100.82.224.88 'sudo bash -s' < docs/servidor-mac/no-dormir.sh
+#   scp docs/servidor-mac/no-dormir.sh croman@100.82.224.88:/tmp/
+#   ssh -t croman@100.82.224.88 'sudo bash /tmp/no-dormir.sh'
 #
 # Para revertir todo: sudo bash no-dormir.sh --revertir
 #
