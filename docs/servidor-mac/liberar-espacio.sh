@@ -72,6 +72,24 @@ sacar() { # sacar <ruta> <qué avisar si estaba>
 
 # La misma lista sirve para borrar y para verificar. Con dos listas separadas,
 # una se desactualiza y el script termina diciendo que borró algo que sigue ahí.
+rutas_docker() {
+  cat <<RUTAS
+/Applications/Docker.app
+$HOME/Library/Containers/com.docker.docker
+$HOME/Library/Group Containers/group.com.docker
+$HOME/.docker
+$HOME/Library/Application Support/Docker Desktop
+$HOME/Library/Caches/com.docker.docker
+$HOME/Library/Caches/KSCrashReports
+$HOME/Library/Preferences/com.docker.docker.plist
+$HOME/Library/Saved Application State/com.electron.docker-frontend.savedState
+$HOME/Library/Logs/Docker Desktop
+$HOME/Library/HTTPStorages/com.docker.docker
+$HOME/Library/Cookies/com.docker.docker.binarycookies
+$HOME/Library/LaunchAgents/com.docker.helper.plist
+RUTAS
+}
+
 rutas_ollama() {
   cat <<RUTAS
 $HOME/.ollama
@@ -348,35 +366,55 @@ case "$1" in
   ;;
 
 --docker)
-  say "Docker Desktop"
-  t=$(tam "$HOME/Library/Containers/com.docker.docker") && info "disco virtual: $t"
+  say "Docker Desktop · qué hay"
+  while IFS= read -r ruta; do
+    t=$(tam "$ruta") && printf '    %-7s %s\n' "$t" "$ruta"
+  done <<<"$(rutas_docker)"
 
-  # El aviso importante va antes de la pregunta, no después.
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && docker_es_local; then
     v=$(docker volume ls -q 2>/dev/null | wc -l | tr -d ' ')
+    c=$(docker ps -q 2>/dev/null | wc -l | tr -d ' ')
+    [ "${c:-0}" -gt 0 ] && bad "hay $c contenedores corriendo · se van a ir con todo"
     if [ "${v:-0}" -gt 0 ]; then
       bad "hay $v volúmenes: son los DATOS de las bases que corrieron acá"
-      info "Si el Supabase de AGENDAMIENTO vivía en este Docker, esto lo borra."
-      info "Para guardarlo antes, en la carpeta del proyecto:"
-      info "  npx supabase db dump --local -f respaldo.sql"
+      info "Esto no se deshace. Para guardarlos primero:"
+      info "  bash $0 --docker-respaldo"
     fi
   fi
-  confirmar "¿Desinstalar Docker Desktop y borrar sus datos?" || return 0
+  confirmar "¿Desinstalar Docker Desktop y borrar TODOS sus datos?" || return 0
 
+  say "1/3 · Cerrando Docker"
+  osascript -e 'quit app "Docker"' 2>/dev/null && ok "app cerrada"
+  sleep 2
+  pkill -x Docker 2>/dev/null && ok "proceso terminado"
+
+  say "2/3 · Borrando"
   # El desinstalador propio limpia los symlinks de /usr/local/bin y el
-  # privileged helper; a mano eso queda dando vueltas.
+  # privileged helper de /Library/PrivilegedHelperTools, que a mano quedan
+  # dando vueltas y hacen que un `docker` fantasma siga respondiendo.
   if [ -x /Applications/Docker.app/Contents/MacOS/uninstall ]; then
-    sudo /Applications/Docker.app/Contents/MacOS/uninstall && ok "desinstalador oficial corrido"
+    sudo /Applications/Docker.app/Contents/MacOS/uninstall >/dev/null 2>&1 \
+      && ok "desinstalador oficial corrido" \
+      || warn "el desinstalador oficial falló · sigo a mano"
   fi
-  osascript -e 'quit app "Docker"' 2>/dev/null
-  sacar /Applications/Docker.app "app borrada"
-  sacar "$HOME/Library/Containers/com.docker.docker" "disco virtual borrado"
-  rm -rf "$HOME/Library/Group Containers/group.com.docker" \
-         "$HOME/.docker" \
-         "$HOME/Library/Application Support/Docker Desktop" \
-         "$HOME/Library/Caches/com.docker.docker" 2>/dev/null
-  rm -f "$HOME/Library/LaunchAgents/com.docker.helper.plist" 2>/dev/null
-  ok "listo · libre ahora: $(libre)"
+  while IFS= read -r ruta; do
+    sacar "$ruta" "$(basename "$ruta")"
+  done <<<"$(rutas_docker)"
+  sudo rm -f /Library/PrivilegedHelperTools/com.docker.vmnetd \
+             /Library/PrivilegedHelperTools/com.docker.socket 2>/dev/null
+
+  say "3/3 · Verificación"
+  restos=0
+  while IFS= read -r ruta; do
+    [ -e "$ruta" ] && { bad "sigue ahí: $ruta"; restos=1; }
+  done <<<"$(rutas_docker)"
+  if command -v docker >/dev/null 2>&1; then
+    warn "todavía hay un comando 'docker' en $(command -v docker)"
+    info "Suele ser un symlink que dejó Homebrew o un cliente aparte, no"
+    info "Docker Desktop. No ocupa espacio; si molesta: brew uninstall docker"
+  fi
+  [ "$restos" = 0 ] && ok "no quedó nada de Docker Desktop"
+  ok "libre ahora: $(libre)"
   ;;
 
 --caches)
