@@ -93,6 +93,29 @@ fila() { # fila <ruta> <qué es>
   printf '           \033[90m%s\033[0m\n' "$1"
 }
 
+# El CLI de docker habla con el daemon que tenga configurado, y eso puede ser
+# otra máquina: basta un `docker context use` o un DOCKER_HOST apuntando a un
+# servidor. Un prune corrido desde acá se ejecutaría ALLÁ, sobre datos ajenos
+# a esta limpieza. Antes de borrar nada hay que probar que el daemon es local.
+docker_es_local() {
+  local endpoint ctx
+  if [ -n "${DOCKER_HOST:-}" ] && ! printf '%s' "$DOCKER_HOST" | grep -q '^unix://'; then
+    bad "DOCKER_HOST apunta a otra máquina: $DOCKER_HOST"
+    info "Esto se cancela: limpiar desde acá borraría cosas allá."
+    return 1
+  fi
+  endpoint=$(docker context inspect -f '{{.Endpoints.docker.Host}}' 2>/dev/null)
+  if [ -n "$endpoint" ] && ! printf '%s' "$endpoint" | grep -q '^unix://'; then
+    ctx=$(docker context show 2>/dev/null)
+    bad "el contexto '$ctx' apunta a un daemon remoto: $endpoint"
+    info "Esto se cancela: limpiar desde acá borraría cosas allá."
+    info "Para ver los contextos:  docker context ls"
+    info "Para volver al local:    docker context use default"
+    return 1
+  fi
+  return 0
+}
+
 libre() {
   # df sobre APFS miente: cuenta como ocupado el espacio "purgable" que el
   # sistema libera solo cuando hace falta. diskutil dice el número real.
@@ -232,6 +255,8 @@ case "$1" in
     bad "Docker no está corriendo · abrilo y volvé a intentar"
     return 0
   fi
+  docker_es_local || return 0
+  ok "el daemon es local · esto no toca ninguna otra máquina"
   info "cómo está ahora:"
   docker system df 2>/dev/null | sed 's/^/      /'
   info ""
@@ -273,7 +298,7 @@ case "$1" in
   t=$(tam "$HOME/Library/Containers/com.docker.docker") && info "disco virtual: $t"
 
   # El aviso importante va antes de la pregunta, no después.
-  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && docker_es_local; then
     v=$(docker volume ls -q 2>/dev/null | wc -l | tr -d ' ')
     if [ "${v:-0}" -gt 0 ]; then
       bad "hay $v volúmenes: son los DATOS de las bases que corrieron acá"

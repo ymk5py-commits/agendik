@@ -174,6 +174,13 @@ Con los números a la vista, una cosa por vez:
 Se pueden combinar en una sola corrida —`bash /tmp/liberar-espacio.sh --ollama
 --caches`— y cada una pregunta antes de borrar; con `-y` no pregunta.
 
+Las dos opciones de Docker comprueban primero que el daemon sea local. El CLI
+de `docker` habla con el daemon que tenga configurado, y eso puede ser otra
+máquina: alcanza con un `docker context use` o un `DOCKER_HOST` apuntando a un
+servidor para que un `prune` corrido acá se ejecute allá. Si el contexto no es
+local, el script corta y te dice cómo volver al de esta máquina en vez de
+limpiar la equivocada.
+
 En una máquina que tiene que seguir sirviendo, la opción es `--docker-seguro`:
 la caché de builds y las imágenes sin usar suelen ser lo más pesado y se
 vuelven a construir o bajar solas, mientras que los datos viven en los
