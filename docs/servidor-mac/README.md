@@ -186,6 +186,49 @@ avisa **antes** de preguntar. Borrar contenedores e imágenes por su cuenta no
 achica el disco virtual de Docker: ese archivo crece y no se encoge solo, así
 que si lo que buscás es el espacio, la que sirve es la desinstalación entera.
 
+### Ordenar el Escritorio y las Descargas
+
+`organizar.sh` agrupa lo que está suelto por tipo de proyecto. **Sin argumentos
+no mueve nada**: muestra el plan y sale.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ymk5py-commits/agendik/refs/heads/claude/ubuntu-mac-server-connection-tfkjvd/docs/servidor-mac/organizar.sh -o /tmp/organizar.sh \
+  && bash /tmp/organizar.sh
+```
+
+Las carpetas se clasifican por lo que tienen adentro, no por el nombre: un
+`package.json` manda a `Proyectos/Web`, un `requirements.txt` a
+`Proyectos/Python`, y así con Rust, Go, PHP, Java, Swift y notebooks. Una
+carpeta con `.git` pero sin manifiesto reconocible va a `Proyectos/Otros` —
+sigue siendo un proyecto, no una carpeta suelta. Los archivos van por
+extensión a `Documentos`, `Hojas`, `Imágenes`, `Multimedia`, `Instaladores`,
+`Comprimidos`, `Código` o `Varios`.
+
+Si el plan cierra:
+
+```bash
+bash /tmp/organizar.sh --escritorio
+bash /tmp/organizar.sh --descargas
+```
+
+Lo que no quieras que se mueva se saca por nombre, las veces que haga falta:
+
+```bash
+bash /tmp/organizar.sh --escritorio --excluir AGENDAMIENTO
+```
+
+**Todo es reversible.** Cada corrida deja un registro en `~/.organizar-mac/`
+y `bash /tmp/organizar.sh --deshacer` revierte la última, devolviendo cada
+cosa exactamente a donde estaba y sacando después las carpetas que quedaron
+vacías. Los archivos ocultos no se tocan nunca, y si un nombre choca con algo
+que ya está en el destino el que llega se numera —`manual (2).pdf`— en vez de
+pisarlo.
+
+Un aviso sobre los proyectos que estés usando: mover una carpeta rompe las
+rutas que apunten a ella. Si tenés un proyecto abierto en el editor, con
+contenedores levantados o con rutas absolutas configuradas, excluilo o cerralo
+antes.
+
 ---
 
 ## 1. Tailscale en la Ubuntu (una sola vez)
