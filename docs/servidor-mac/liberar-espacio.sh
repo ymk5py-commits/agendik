@@ -12,6 +12,8 @@
 #   bash liberar-espacio.sh --ollama      modelos de Ollama + la app
 #   bash liberar-espacio.sh --docker-seguro  caché e imágenes de Docker,
 #                                            SIN tocar los datos
+#   bash liberar-espacio.sh --docker-respaldo  guardar los volúmenes en el
+#                                              Escritorio antes de borrar
 #   bash liberar-espacio.sh --docker      Docker Desktop entero + sus datos
 #   bash liberar-espacio.sh --caches      cachés de npm, Homebrew, Xcode
 #   bash liberar-espacio.sh --snapshots   snapshots locales de Time Machine
@@ -33,7 +35,7 @@ ACCIONES=()
 for arg in "$@"; do
   case "$arg" in
     -y|--si)      SI_A_TODO=1 ;;
-    --ollama|--docker|--docker-seguro|--caches|--snapshots) ACCIONES+=("$arg") ;;
+    --ollama|--docker|--docker-seguro|--docker-respaldo|--caches|--snapshots) ACCIONES+=("$arg") ;;
     # Un rango fijo de líneas se desfasa en cuanto alguien edita la cabecera
     # y termina imprimiendo el `set -uo pipefail`: cortar en el primer renglón
     # que ya no es comentario.
@@ -185,6 +187,7 @@ Esto no borró nada. Con los números de arriba, elegí:
 
   bash $0 --ollama      los modelos son lo más pesado y se rebajan
   bash $0 --docker-seguro  caché e imágenes, SIN tocar los datos
+  bash $0 --docker-respaldo  guardar los volúmenes antes de borrar nada
   bash $0 --docker      OJO: se lleva puestos los datos de Supabase
   bash $0 --caches      lo más seguro: todo se regenera solo
   bash $0 --snapshots   invisible en Finder, suele liberar varios GB
@@ -291,6 +294,57 @@ case "$1" in
   info "no se achicó todavía. Reiniciá Docker Desktop; si aun así no baja, esa"
   info "versión no devuelve el espacio y la única salida es desinstalarlo."
   ok "libre ahora: $(libre)"
+  ;;
+
+--docker-respaldo)
+  say "Respaldo de los volúmenes"
+  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    bad "Docker no está corriendo · abrilo y volvé a intentar"; return 0
+  fi
+  docker_es_local || return 0
+
+  destino="$HOME/Desktop/respaldo-docker"
+  vols=$(docker volume ls -q 2>/dev/null)
+  [ -n "$vols" ] || { ok "no hay volúmenes que respaldar"; return 0; }
+
+  info "van a $destino"
+  printf '%s\n' "$vols" | sed 's/^/      /'
+  info ""
+  # Un tar de un Postgres en marcha sale roto: las páginas cambian mientras se
+  # copia y el respaldo falla justo el día que hace falta. Hay que parar todo
+  # antes, aunque eso corte los servicios un rato.
+  warn "Esto PARA todos los contenedores: un tar de una base en marcha sale roto."
+  info "Después se vuelven a levantar con: docker start \$(docker ps -aq)"
+  confirmar "¿Parar todo y respaldar?" || return 0
+
+  mkdir -p "$destino" || { bad "no pude crear $destino"; return 0; }
+  corriendo=$(docker ps -q 2>/dev/null)
+  if [ -n "$corriendo" ]; then
+    docker stop $corriendo >/dev/null 2>&1 && ok "contenedores parados"
+  fi
+
+  fallos=0
+  for v in $vols; do
+    printf '    %-45s ' "$v"
+    # alpine + tar corre adentro de Docker, así que no depende de qué haya
+    # instalado en la Mac, y monta el volumen de solo lectura.
+    if docker run --rm -v "$v":/origen:ro -v "$destino":/destino alpine \
+         tar czf "/destino/$v.tgz" -C /origen . >/dev/null 2>&1; then
+      printf '\033[32m%s\033[0m\n' "$(tam "$destino/$v.tgz")"
+    else
+      printf '\033[31mfalló\033[0m\n'; fallos=$((fallos+1))
+    fi
+  done
+
+  if [ "$fallos" -gt 0 ]; then
+    bad "$fallos volúmenes no se pudieron respaldar · NO borres Docker todavía"
+  else
+    ok "los $(printf '%s\n' "$vols" | wc -l | tr -d ' ') volúmenes quedaron en $destino"
+    info "total: $(tam "$destino")"
+    info "Para restaurar uno:"
+    info "  docker run --rm -v NOMBRE:/destino -v $destino:/origen alpine \\"
+    info "    tar xzf /origen/NOMBRE.tgz -C /destino"
+  fi
   ;;
 
 --docker)

@@ -169,6 +169,7 @@ Con los números a la vista, una cosa por vez:
 | `bash /tmp/liberar-espacio.sh --snapshots` | Snapshots locales de Time Machine. No es tu backup — ese está en el disco externo |
 | `bash /tmp/liberar-espacio.sh --ollama` | Los modelos y la app. Suele ser lo más pesado |
 | `bash /tmp/liberar-espacio.sh --docker-seguro` | Caché de builds, imágenes sin usar y contenedores parados. **No toca los volúmenes**, o sea que los datos quedan |
+| `bash /tmp/liberar-espacio.sh --docker-respaldo` | Guarda cada volumen como un `.tgz` en `~/Desktop/respaldo-docker` antes de borrar nada |
 | `bash /tmp/liberar-espacio.sh --docker` | Docker Desktop entero y su disco virtual. **Se lleva los datos** |
 
 Se pueden combinar en una sola corrida —`bash /tmp/liberar-espacio.sh --ollama
@@ -194,6 +195,14 @@ Si hay algo ahí que quieras conservar, primero, desde la carpeta del proyecto:
 ```bash
 npx supabase db dump --local -f respaldo.sql
 ```
+
+Si hay más de un stack en juego, `--docker-respaldo` los guarda todos de una:
+para cada volumen corre un `tar` adentro de un contenedor —así no depende de
+qué haya instalado en la Mac— y monta el volumen de solo lectura. Antes para
+los contenedores, porque un tar de un Postgres en marcha sale roto: las
+páginas cambian mientras se copia y el respaldo falla justo el día que hace
+falta. Si alguno no se pudo copiar lo dice en rojo y avisa de no borrar nada
+todavía.
 
 El script mira si hay contenedores corriendo y cuántos volúmenes hay, y lo
 avisa **antes** de preguntar. Borrar contenedores e imágenes por su cuenta no
