@@ -25,11 +25,13 @@ warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
 
 SI_A_TODO=0
-ACCION=""
+# Varias acciones en una corrida. Con una sola variable, `--ollama --caches`
+# se quedaba con la última y corría media cosa sin decir nada.
+ACCIONES=()
 for arg in "$@"; do
   case "$arg" in
     -y|--si)      SI_A_TODO=1 ;;
-    --ollama|--docker|--caches|--snapshots) ACCION="$arg" ;;
+    --ollama|--docker|--caches|--snapshots) ACCIONES+=("$arg") ;;
     # Un rango fijo de líneas se desfasa en cuanto alguien edita la cabecera
     # y termina imprimiendo el `set -uo pipefail`: cortar en el primer renglón
     # que ya no es comentario.
@@ -76,7 +78,7 @@ libre() {
 # =====================================================================
 # Sin acción: medir y salir
 # =====================================================================
-if [ -z "$ACCION" ]; then
+if [ ${#ACCIONES[@]} -eq 0 ]; then
   say "Espacio libre ahora"
   l=$(libre); [ -n "$l" ] && ok "$l" || warn "no pude leerlo (¿no es macOS?)"
 
@@ -143,7 +145,8 @@ FIN
 fi
 
 # =====================================================================
-case "$ACCION" in
+ejecutar() {
+case "$1" in
 
 --ollama)
   say "Ollama"
@@ -229,3 +232,6 @@ case "$ACCION" in
   ok "listo · libre ahora: $(libre)"
   ;;
 esac
+}
+
+for a in "${ACCIONES[@]}"; do ejecutar "$a"; done

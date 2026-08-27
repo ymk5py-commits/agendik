@@ -170,7 +170,8 @@ Con los números a la vista, una cosa por vez:
 | `bash /tmp/liberar-espacio.sh --ollama` | Los modelos y la app. Suele ser lo más pesado |
 | `bash /tmp/liberar-espacio.sh --docker` | Docker Desktop y su disco virtual |
 
-Cada uno pregunta antes de borrar; con `-y` no pregunta.
+Se pueden combinar en una sola corrida —`bash /tmp/liberar-espacio.sh --ollama
+--caches`— y cada una pregunta antes de borrar; con `-y` no pregunta.
 
 **Cuidado con `--docker`.** El Supabase de este proyecto corre adentro de
 Docker, y los datos de la base viven en sus volúmenes: desinstalarlo los borra.
