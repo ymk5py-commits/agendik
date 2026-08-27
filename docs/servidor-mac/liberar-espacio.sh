@@ -10,7 +10,9 @@
 # Después, con los números a la vista, una cosa por vez:
 #
 #   bash liberar-espacio.sh --ollama      modelos de Ollama + la app
-#   bash liberar-espacio.sh --docker      Docker Desktop + su disco virtual
+#   bash liberar-espacio.sh --docker-seguro  caché e imágenes de Docker,
+#                                            SIN tocar los datos
+#   bash liberar-espacio.sh --docker      Docker Desktop entero + sus datos
 #   bash liberar-espacio.sh --caches      cachés de npm, Homebrew, Xcode
 #   bash liberar-espacio.sh --snapshots   snapshots locales de Time Machine
 #
@@ -31,7 +33,7 @@ ACCIONES=()
 for arg in "$@"; do
   case "$arg" in
     -y|--si)      SI_A_TODO=1 ;;
-    --ollama|--docker|--caches|--snapshots) ACCIONES+=("$arg") ;;
+    --ollama|--docker|--docker-seguro|--caches|--snapshots) ACCIONES+=("$arg") ;;
     # Un rango fijo de líneas se desfasa en cuanto alguien edita la cabecera
     # y termina imprimiendo el `set -uo pipefail`: cortar en el primer renglón
     # que ya no es comentario.
@@ -159,6 +161,7 @@ if [ ${#ACCIONES[@]} -eq 0 ]; then
 Esto no borró nada. Con los números de arriba, elegí:
 
   bash $0 --ollama      los modelos son lo más pesado y se rebajan
+  bash $0 --docker-seguro  caché e imágenes, SIN tocar los datos
   bash $0 --docker      OJO: se lleva puestos los datos de Supabase
   bash $0 --caches      lo más seguro: todo se regenera solo
   bash $0 --snapshots   invisible en Finder, suele liberar varios GB
@@ -220,6 +223,48 @@ case "$1" in
     info "todavía en memoria: cerrá sesión y volvé a entrar. Y si reaparece al"
     info "reiniciar, sacala de Ajustes > General > Ítems de inicio."
   fi
+  ok "libre ahora: $(libre)"
+  ;;
+
+--docker-seguro)
+  say "Docker · sacar lo que no son datos"
+  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    bad "Docker no está corriendo · abrilo y volvé a intentar"
+    return 0
+  fi
+  info "cómo está ahora:"
+  docker system df 2>/dev/null | sed 's/^/      /'
+  info ""
+  # La distinción es toda la gracia de esta opción: la caché de builds y las
+  # imágenes sin usar se vuelven a bajar o a construir solas. Los volúmenes
+  # son la base de datos. Por eso nunca aparece --volumes acá abajo.
+  info "Se saca: caché de builds, imágenes sin usar, contenedores parados."
+  info "NO se toca: los volúmenes, que es donde están los datos de Supabase."
+  confirmar "¿Dale?" || return 0
+
+  vol_antes=$(docker volume ls -q 2>/dev/null | wc -l | tr -d ' ')
+
+  docker builder prune -af   >/dev/null 2>&1 && ok "caché de builds"
+  docker image prune -af     >/dev/null 2>&1 && ok "imágenes sin usar"
+  docker container prune -f  >/dev/null 2>&1 && ok "contenedores parados"
+  docker network prune -f    >/dev/null 2>&1 && ok "redes sueltas"
+
+  vol_despues=$(docker volume ls -q 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$vol_antes" = "$vol_despues" ]; then
+    ok "los $vol_despues volúmenes siguen intactos"
+  else
+    bad "los volúmenes pasaron de $vol_antes a $vol_despues · esto no debía pasar"
+  fi
+
+  say "Cómo quedó"
+  docker system df 2>/dev/null | sed 's/^/      /'
+  # Docker Desktop viejo no devuelve al disco el espacio que se libera adentro
+  # del disco virtual: el archivo crece y no se encoge. En las versiones
+  # nuevas sí, pero puede tardar un rato en verse.
+  info ""
+  info "Si el espacio del sistema no cambió, es que el disco virtual de Docker"
+  info "no se achicó todavía. Reiniciá Docker Desktop; si aun así no baja, esa"
+  info "versión no devuelve el espacio y la única salida es desinstalarlo."
   ok "libre ahora: $(libre)"
   ;;
 

@@ -168,10 +168,17 @@ Con los números a la vista, una cosa por vez:
 | `bash /tmp/liberar-espacio.sh --caches` | npm, Homebrew, DerivedData, simuladores muertos. Lo más seguro: todo se regenera solo |
 | `bash /tmp/liberar-espacio.sh --snapshots` | Snapshots locales de Time Machine. No es tu backup — ese está en el disco externo |
 | `bash /tmp/liberar-espacio.sh --ollama` | Los modelos y la app. Suele ser lo más pesado |
-| `bash /tmp/liberar-espacio.sh --docker` | Docker Desktop y su disco virtual |
+| `bash /tmp/liberar-espacio.sh --docker-seguro` | Caché de builds, imágenes sin usar y contenedores parados. **No toca los volúmenes**, o sea que los datos quedan |
+| `bash /tmp/liberar-espacio.sh --docker` | Docker Desktop entero y su disco virtual. **Se lleva los datos** |
 
 Se pueden combinar en una sola corrida —`bash /tmp/liberar-espacio.sh --ollama
 --caches`— y cada una pregunta antes de borrar; con `-y` no pregunta.
+
+En una máquina que tiene que seguir sirviendo, la opción es `--docker-seguro`:
+la caché de builds y las imágenes sin usar suelen ser lo más pesado y se
+vuelven a construir o bajar solas, mientras que los datos viven en los
+volúmenes y ahí no se toca nada. El script cuenta los volúmenes antes y
+después y avisa si el número cambió.
 
 **Cuidado con `--docker`.** El Supabase de este proyecto corre adentro de
 Docker, y los datos de la base viven en sus volúmenes: desinstalarlo los borra.
