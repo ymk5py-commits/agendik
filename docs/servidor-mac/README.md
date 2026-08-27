@@ -113,7 +113,32 @@ ssh croman@100.82.224.88 "pmset -g log | grep -iE 'Sleep.*due to' | tail -20"
 | `Low Power Sleep` | Se quedó sin batería — enchufala |
 | `Maintenance Sleep` | Power Nap: quedó encendido |
 
-Para revertirlo: `sudo bash no-dormir.sh --revertir`.
+### Volver atrás: que la Mac vuelva a ser una laptop
+
+Cuando ya no la quieras de servidor, el mismo script la devuelve a como venía.
+De una sola pegada desde la Ubuntu:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ymk5py-commits/agendik/refs/heads/claude/ubuntu-mac-server-connection-tfkjvd/docs/servidor-mac/no-dormir.sh \
+  | ssh croman@100.82.224.88 'cat > /tmp/no-dormir.sh' \
+  && ssh -t croman@100.82.224.88 'sudo bash /tmp/no-dormir.sh --revertir'
+```
+
+Saca el daemon de `caffeinate` (y mata el que estuviera corriendo, que si no
+sostiene la assertion y la Mac sigue despierta con los `pmset` ya en cero),
+devuelve la energía a los valores de fábrica con `pmset restoredefaults` —eso
+cubre `standby`, `autopoweroff`, `hibernatemode`, `powernap` y `displaysleep`
+sin tener que acordarse de listarlas— y deja `disablesleep` en 0, que es la
+clave de la tapa. Termina verificando las tres cosas.
+
+**Con esto deja de servir.** Una Mac dormida no responde y no se despierta
+desde afuera: Supabase, Studio y lo demás van a contestar solo con la tapa
+abierta. Si la app apunta a `http://100.82.224.88:54321`, hay que volver a
+levantar Supabase local (`npm run db:start`) o apuntarla al backend de
+`deploy/`.
+
+Si estás sentado en la Mac, es lo mismo sin el `ssh`: `sudo bash
+no-dormir.sh --revertir`.
 
 ---
 

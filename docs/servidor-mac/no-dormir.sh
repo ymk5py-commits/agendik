@@ -16,7 +16,13 @@
 #   scp docs/servidor-mac/no-dormir.sh croman@100.82.224.88:/tmp/
 #   ssh -t croman@100.82.224.88 'sudo bash /tmp/no-dormir.sh'
 #
-# Para revertir todo: sudo bash no-dormir.sh --revertir
+# Para devolver la Mac a como venía de fábrica -- que se duerma sola, que se
+# duerma al cerrar la tapa, sin daemon dando vueltas:
+#
+#   sudo bash no-dormir.sh --revertir
+#
+# Eso deja de servir Supabase y todo lo demas cuando la tapa esta cerrada: es
+# exactamente lo que hay que correr cuando la Mac vuelve a ser una laptop.
 #
 set -uo pipefail
 
@@ -32,13 +38,84 @@ info() { printf '    %s\n' "$*"; }
 
 # ---------------------------------------------------------------------
 if [ "${1:-}" = "--revertir" ]; then
-  say "Devolviendo el comportamiento normal"
-  pmset -a disablesleep 0 2>/dev/null
-  pmset -a sleep 1 2>/dev/null
-  pmset -a disksleep 10 2>/dev/null
-  launchctl bootout system "$PLIST" 2>/dev/null
-  rm -f "$PLIST"
-  ok "la Mac vuelve a dormirse al cerrar la tapa"
+  say "1/3 · Sacando el caffeinate"
+  # ---------------------------------------------------------------------
+  # El daemon va primero. Si sigue vivo mantiene su assertion y la Mac no se
+  # duerme aunque las claves de pmset ya estén en cero: quedaría revertida en
+  # los papeles y despierta en la realidad.
+  if [ -f "$PLIST" ]; then
+    launchctl bootout system "$PLIST" 2>/dev/null
+    rm -f "$PLIST"
+    ok "daemon desinstalado · ya no arranca en los reinicios"
+  else
+    ok "no había daemon instalado"
+  fi
+
+  if pkill -x caffeinate 2>/dev/null; then
+    ok "el caffeinate que seguía corriendo, terminado"
+  else
+    ok "no quedaba ningún caffeinate corriendo"
+  fi
+
+  say "2/3 · Devolviendo la energía a los valores de fábrica"
+  # ---------------------------------------------------------------------
+  # restoredefaults devuelve TODAS las claves de una, incluidas standby,
+  # autopoweroff, hibernatemode, powernap y displaysleep. Listarlas a mano es
+  # pedirle a alguien que se acuerde de las nueve dentro de seis meses.
+  if pmset restoredefaults 2>/dev/null; then
+    ok "ajustes de energía restaurados"
+  else
+    bad "restoredefaults no anduvo · devolviendo las claves una por una"
+    for par in "sleep 1" "disksleep 10" "standby 1" "autopoweroff 1" \
+               "hibernatemode 3" "powernap 1" "displaysleep 2" \
+               "ttyskeepawake 1" "autorestart 0"; do
+      # shellcheck disable=SC2086
+      pmset -a $par 2>/dev/null \
+        && printf '  \033[32m✓\033[0m %s\n' "$par" \
+        || printf '  \033[90m·\033[0m %s (no existe en este Mac)\n' "$par"
+    done
+  fi
+
+  # disablesleep es la clave que decide lo de la tapa y no siempre entra en
+  # restoredefaults, así que va explícita igual.
+  pmset -a disablesleep 0 2>/dev/null && ok "disablesleep en 0 · la tapa vuelve a dormirla"
+
+  say "3/3 · Verificación"
+  # ---------------------------------------------------------------------
+  printf '  %-18s ' "SleepDisabled"
+  if pmset -g 2>/dev/null | grep -qE 'SleepDisabled[[:space:]]+1'; then
+    printf '\033[31msigue en 1 · NO se revirtió\033[0m\n'
+  else
+    printf '\033[32m0 · se duerme al cerrar la tapa\033[0m\n'
+  fi
+
+  printf '  %-18s ' "caffeinate"
+  if pgrep -x caffeinate >/dev/null 2>&1; then
+    printf '\033[33mtodavía hay uno corriendo\033[0m\n'
+  else
+    printf '\033[32mninguno\033[0m\n'
+  fi
+
+  printf '  %-18s ' "daemon"
+  if launchctl print "system/$LABEL" >/dev/null 2>&1; then
+    printf '\033[31msigue cargado\033[0m\n'
+  else
+    printf '\033[32mdesinstalado\033[0m\n'
+  fi
+
+  cat <<FIN_REVERTIR
+
+=====================================================================
+La Mac volvió a ser una laptop normal: se duerme sola y se duerme al
+cerrar la tapa.
+
+Con eso deja de estar disponible como servidor mientras duerme, y una
+Mac dormida no se despierta desde afuera. Lo que corría ahí —Supabase,
+Studio— solo responde con la tapa abierta.
+
+Para volver a dejarla despierta: sudo bash $0
+=====================================================================
+FIN_REVERTIR
   exit 0
 fi
 
