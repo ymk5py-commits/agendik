@@ -58,7 +58,30 @@ tam() { [ -e "$1" ] || return 1; du -sh "$1" 2>/dev/null | awk '{print $1}'; }
 # "✓ app borrada" de una app que nunca estuvo instalada.
 sacar() { # sacar <ruta> <qué avisar si estaba>
   [ -e "$1" ] || return 0
-  rm -rf "$1" 2>/dev/null && ok "$2" || bad "no pude borrar $1"
+  rm -rf "$1" 2>/dev/null
+  # Las apps de /Applications suelen tener dueño root: reintentar con sudo
+  # antes de dar el borrado por perdido.
+  [ -e "$1" ] && sudo rm -rf "$1" 2>/dev/null
+  [ -e "$1" ] && { bad "no pude borrar $1"; return 1; }
+  ok "$2"
+}
+
+# La misma lista sirve para borrar y para verificar. Con dos listas separadas,
+# una se desactualiza y el script termina diciendo que borró algo que sigue ahí.
+rutas_ollama() {
+  cat <<RUTAS
+$HOME/.ollama
+$HOME/Library/Application Support/Ollama
+$HOME/Library/Caches/Ollama
+$HOME/Library/Caches/com.electron.ollama
+$HOME/Library/Preferences/com.electron.ollama.plist
+$HOME/Library/Saved Application State/com.electron.ollama.savedState
+$HOME/Library/HTTPStorages/com.electron.ollama
+$HOME/Library/WebKit/com.electron.ollama
+/Applications/Ollama.app
+/usr/local/bin/ollama
+/opt/homebrew/bin/ollama
+RUTAS
 }
 
 fila() { # fila <ruta> <qué es>
@@ -149,26 +172,55 @@ ejecutar() {
 case "$1" in
 
 --ollama)
-  say "Ollama"
-  t=$(tam "$HOME/.ollama") && info "modelos: $t"
+  say "Ollama · qué hay"
+  while IFS= read -r ruta; do
+    t=$(tam "$ruta") && printf '    %-7s %s\n' "$t" "$ruta"
+  done <<<"$(rutas_ollama)"
   if command -v ollama >/dev/null 2>&1; then
-    info "modelos instalados:"; ollama list 2>/dev/null | sed 's/^/      /'
+    info "modelos:"; ollama list 2>/dev/null | sed 's/^/      /'
   fi
-  confirmar "¿Borrar Ollama y TODOS sus modelos?" || exit 0
+  confirmar "¿Borrar Ollama entero y TODOS sus modelos?" || return 0
 
-  pkill -x ollama 2>/dev/null && ok "proceso terminado"
-  osascript -e 'quit app "Ollama"' 2>/dev/null
+  say "1/3 · Cerrando lo que esté corriendo"
+  # Son dos procesos con dos nombres distintos y pkill -x distingue
+  # mayúsculas: `Ollama` es la app de la barra de menú, `ollama` el servidor.
+  # Matar solo el segundo deja el ícono arriba y la app vuelve a crear ~/.ollama.
+  osascript -e 'quit app "Ollama"' 2>/dev/null && ok "app cerrada"
+  sleep 1
+  pkill -x Ollama 2>/dev/null && ok "proceso Ollama (app) terminado"
+  pkill -x ollama 2>/dev/null && ok "proceso ollama (servidor) terminado"
+  pkill -f 'Ollama Helper' 2>/dev/null
 
-  # Puede haber venido por el .app, por Homebrew o por el script de install:
-  # los tres dejan cosas en lugares distintos, así que van los tres.
-  sacar "$HOME/.ollama"          "modelos borrados"
-  sacar /Applications/Ollama.app "app borrada"
-  sudo rm -f /usr/local/bin/ollama 2>/dev/null
-  rm -f "$HOME"/Library/LaunchAgents/*ollama* 2>/dev/null
+  say "2/3 · Borrando"
+  # Pudo venir por el .app, por Homebrew o por el script de install, y los
+  # tres dejan cosas en lugares distintos.
   if command -v brew >/dev/null 2>&1; then
-    brew uninstall --cask ollama 2>/dev/null || brew uninstall ollama 2>/dev/null
+    brew uninstall --cask ollama 2>/dev/null && ok "desinstalado de Homebrew (cask)"
+    brew uninstall ollama       2>/dev/null && ok "desinstalado de Homebrew (fórmula)"
   fi
-  ok "listo · libre ahora: $(libre)"
+  while IFS= read -r ruta; do
+    sacar "$ruta" "$(basename "$ruta")"
+  done <<<"$(rutas_ollama)"
+  for la in "$HOME"/Library/LaunchAgents/*[oO]llama*; do
+    [ -e "$la" ] && sacar "$la" "$(basename "$la")"
+  done
+
+  say "3/3 · Verificación"
+  restos=0
+  while IFS= read -r ruta; do
+    [ -e "$ruta" ] && { bad "sigue ahí: $ruta"; restos=1; }
+  done <<<"$(rutas_ollama)"
+  if pgrep -ix ollama >/dev/null 2>&1; then
+    bad "todavía hay un proceso de Ollama corriendo"
+    restos=1
+  fi
+  if [ "$restos" = 0 ]; then
+    ok "no quedó nada de Ollama"
+    info "Si igual seguís viendo el ícono en la barra de menú, es la app vieja"
+    info "todavía en memoria: cerrá sesión y volvé a entrar. Y si reaparece al"
+    info "reiniciar, sacala de Ajustes > General > Ítems de inicio."
+  fi
+  ok "libre ahora: $(libre)"
   ;;
 
 --docker)
@@ -185,7 +237,7 @@ case "$1" in
       info "  npx supabase db dump --local -f respaldo.sql"
     fi
   fi
-  confirmar "¿Desinstalar Docker Desktop y borrar sus datos?" || exit 0
+  confirmar "¿Desinstalar Docker Desktop y borrar sus datos?" || return 0
 
   # El desinstalador propio limpia los symlinks de /usr/local/bin y el
   # privileged helper; a mano eso queda dando vueltas.
@@ -209,7 +261,7 @@ case "$1" in
            "$HOME/Library/Developer/Xcode/DerivedData" "$HOME/Library/Caches/Yarn"; do
     t=$(tam "$p") && info "$t  $p"
   done
-  confirmar "¿Vaciarlas?" || exit 0
+  confirmar "¿Vaciarlas?" || return 0
 
   command -v npm  >/dev/null 2>&1 && { npm cache clean --force 2>/dev/null; ok "npm"; }
   command -v brew >/dev/null 2>&1 && { brew cleanup -s 2>/dev/null; rm -rf "$(brew --cache)" 2>/dev/null; ok "Homebrew"; }
@@ -226,7 +278,7 @@ case "$1" in
   info ""
   info "No son tu backup: el backup está en el disco externo. Estos son"
   info "copias que macOS deja en el disco interno entre respaldo y respaldo."
-  confirmar "¿Borrarlos?" || exit 0
+  confirmar "¿Borrarlos?" || return 0
 
   sudo tmutil thinlocalsnapshots / 999999999999 4 && ok "borrados"
   ok "listo · libre ahora: $(libre)"
