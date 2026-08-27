@@ -140,6 +140,51 @@ levantar Supabase local (`npm run db:start`) o apuntarla al backend de
 Si estás sentado en la Mac, es lo mismo sin el `ssh`: `sudo bash
 no-dormir.sh --revertir`.
 
+### Liberar espacio en la Mac
+
+Cuando dejó de ser servidor suele quedar bastante para tirar. `liberar-espacio.sh`
+**sin argumentos no borra nada**: mide y muestra, que es por donde hay que
+empezar — lo que uno cree que ocupa y lo que ocupa de verdad casi nunca
+coinciden.
+
+Sentado en la Mac:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ymk5py-commits/agendik/refs/heads/claude/ubuntu-mac-server-connection-tfkjvd/docs/servidor-mac/liberar-espacio.sh -o /tmp/liberar-espacio.sh \
+  && bash /tmp/liberar-espacio.sh
+```
+
+Mide los sospechosos de siempre —modelos de Ollama, el disco virtual de Docker,
+DerivedData de Xcode, cachés de npm y Homebrew, la papelera— y dos cosas que no
+se ven en Finder: los **snapshots locales de Time Machine** (copias que macOS
+deja en el disco interno entre backup y backup, suelen ser varios GB) y el
+espacio libre real, que `df` no dice bien en APFS porque cuenta como ocupado lo
+que el sistema puede purgar.
+
+Con los números a la vista, una cosa por vez:
+
+| Comando | Qué saca |
+|---|---|
+| `bash /tmp/liberar-espacio.sh --caches` | npm, Homebrew, DerivedData, simuladores muertos. Lo más seguro: todo se regenera solo |
+| `bash /tmp/liberar-espacio.sh --snapshots` | Snapshots locales de Time Machine. No es tu backup — ese está en el disco externo |
+| `bash /tmp/liberar-espacio.sh --ollama` | Los modelos y la app. Suele ser lo más pesado |
+| `bash /tmp/liberar-espacio.sh --docker` | Docker Desktop y su disco virtual |
+
+Cada uno pregunta antes de borrar; con `-y` no pregunta.
+
+**Cuidado con `--docker`.** El Supabase de este proyecto corre adentro de
+Docker, y los datos de la base viven en sus volúmenes: desinstalarlo los borra.
+Si hay algo ahí que quieras conservar, primero, desde la carpeta del proyecto:
+
+```bash
+npx supabase db dump --local -f respaldo.sql
+```
+
+El script mira si hay contenedores corriendo y cuántos volúmenes hay, y lo
+avisa **antes** de preguntar. Borrar contenedores e imágenes por su cuenta no
+achica el disco virtual de Docker: ese archivo crece y no se encoge solo, así
+que si lo que buscás es el espacio, la que sirve es la desinstalación entera.
+
 ---
 
 ## 1. Tailscale en la Ubuntu (una sola vez)
