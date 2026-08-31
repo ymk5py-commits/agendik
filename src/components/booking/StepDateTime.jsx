@@ -20,7 +20,7 @@ import { toDateKey } from '../../utils/format'
 
 const WEEKDAY_LABELS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá']
 
-export default function StepDateTime({ professionalId, durationMin, selectedDate, selectedTime, onSelectDate, onSelectTime }) {
+export default function StepDateTime({ professionalId, durationMin, capacity = 1, selectedDate, selectedTime, onSelectDate, onSelectTime }) {
   const [month, setMonth] = useState(() => startOfMonth(selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date()))
 
   const days = useMemo(() => {
@@ -39,14 +39,14 @@ export default function StepDateTime({ professionalId, durationMin, selectedDate
   )
 
   const monthAvailability = useAsync(
-    () => backend.getMonthAvailability({ professionalId, dateKeys: futureKeys, durationMin }),
-    [professionalId, durationMin, futureKeys.join('|')],
+    () => backend.getMonthAvailability({ professionalId, dateKeys: futureKeys, durationMin, capacity }),
+    [professionalId, durationMin, capacity, futureKeys.join('|')],
     { enabled: futureKeys.length > 0, initialData: {} },
   )
 
   const slots = useAsync(
-    () => backend.getAvailability({ professionalId, dateKey: selectedDate, durationMin }),
-    [professionalId, selectedDate, durationMin],
+    () => backend.getAvailability({ professionalId, dateKey: selectedDate, durationMin, capacity }),
+    [professionalId, selectedDate, durationMin, capacity],
     { enabled: Boolean(selectedDate), initialData: [] },
   )
 

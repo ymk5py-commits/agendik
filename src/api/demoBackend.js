@@ -1,5 +1,5 @@
 import { buildDemoSeed } from '../data/demoData'
-import { computeDaySlots } from '../data/slots'
+import { computeDaySlots, soloHorarios } from '../data/slots'
 import { addMinutesToTime } from '../utils/format'
 
 const DB_KEY = 'agendik.demo.db'
@@ -137,21 +137,22 @@ export const demoBackend = {
       .map((a) => hydrate(db, a))
   },
 
-  async getAvailability({ professionalId, dateKey, durationMin }) {
+  async getAvailability({ professionalId, dateKey, durationMin, capacity = 1 }) {
     await wait(200)
     const db = load()
     const pro = db.professionals.find((p) => p.id === professionalId)
     if (!pro) return []
-    return computeDaySlots({
+    return soloHorarios(computeDaySlots({
+      capacity,
       workingHours: db.workingHours.filter((w) => w.professionalId === professionalId),
       appointments: db.appointments.filter((a) => a.professionalId === professionalId),
       dateKey,
       durationMin,
       intervalMin: pro.slotIntervalMin,
-    })
+    }))
   },
 
-  async getMonthAvailability({ professionalId, dateKeys, durationMin }) {
+  async getMonthAvailability({ professionalId, dateKeys, durationMin, capacity = 1 }) {
     await wait(220)
     const db = load()
     const pro = db.professionals.find((p) => p.id === professionalId)
@@ -161,6 +162,7 @@ export const demoBackend = {
     const out = {}
     for (const dateKey of dateKeys) {
       out[dateKey] = computeDaySlots({
+        capacity,
         workingHours: wh,
         appointments: appts,
         dateKey,

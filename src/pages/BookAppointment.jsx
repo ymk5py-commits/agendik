@@ -46,6 +46,11 @@ export default function BookAppointment() {
   const selectedPackage = (packages.data || []).find((p) => p.id === packageId) || null
 
   const totalDuration = selectedServices.reduce((acc, s) => acc + s.durationMin, 0)
+  // Personas por turno del combo elegido. Se toma el mínimo, igual que en la
+  // base: si se mezcla una clase grupal con algo individual, manda lo individual.
+  const cupoDelTurno = selectedServices.length
+    ? Math.min(...selectedServices.map((s) => s.capacity ?? 1))
+    : 1
   const totalPrice = selectedServices.reduce((acc, s) => acc + s.price, 0)
 
   const canContinue = [
@@ -203,6 +208,7 @@ export default function BookAppointment() {
           <StepDateTime
             professionalId={professionalId}
             durationMin={totalDuration}
+            capacity={cupoDelTurno}
             selectedDate={date}
             selectedTime={time}
             onSelectDate={(d) => {

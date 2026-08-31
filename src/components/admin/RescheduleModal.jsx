@@ -34,7 +34,7 @@ export default function RescheduleModal({ cita, onClose, onDone }) {
   const disponibles = useAsync(
     () =>
       cita && profesionalId && fecha
-        ? backend.getAvailability({ professionalId: profesionalId, dateKey: fecha, durationMin: cita.durationMin })
+        ? backend.getAvailability({ professionalId: profesionalId, dateKey: fecha, durationMin: cita.durationMin, capacity: cita.slotCapacity ?? 1 })
         : Promise.resolve([]),
     [cita?.id, profesionalId, fecha],
     { initialData: [] },

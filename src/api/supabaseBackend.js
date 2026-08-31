@@ -1,5 +1,5 @@
 import { supabase, DEFAULT_TENANT } from './supabaseClient'
-import { computeDaySlots } from '../data/slots'
+import { computeDaySlots, soloHorarios } from '../data/slots'
 import { addMinutesToTime } from '../utils/format'
 
 /** Traduce errores de Supabase a mensajes que el cliente entiende */
@@ -115,6 +115,8 @@ const mapService = (r) => ({
   durationMin: r.duration_min,
   price: Number(r.price),
   active: r.active !== false,
+  // Personas por turno: 1 = individual, más = clase grupal.
+  capacity: Number(r.capacity ?? 1),
 })
 
 const mapPro = (r) => ({
@@ -148,7 +150,7 @@ const APPT_SELECT = `
   id, tenant_id, client_id, professional_id, date, start_time, end_time, duration_min,
   package_id, status, notes, source,
   professionals ( id, tenant_id, name, specialties, slot_interval_min ),
-  appointment_services ( service_id, services ( id, tenant_id, name, category, duration_min, price ) )
+  appointment_services ( service_id, services ( id, tenant_id, name, category, duration_min, price, capacity ) )
 `
 
 export const supabaseBackend = {
@@ -319,7 +321,7 @@ export const supabaseBackend = {
   async getServices({ todos = false } = {}) {
     let query = supabase
       .from('services')
-      .select('id, tenant_id, name, category, duration_min, price, active')
+      .select('id, tenant_id, name, category, duration_min, price, active, capacity')
       .order('category')
       .order('name')
     if (!todos) query = query.eq('active', true)
@@ -349,7 +351,7 @@ export const supabaseBackend = {
         id, tenant_id, client_id, name, original_price, discount_percentage, discount_amount,
         final_price, total_paid, remaining_balance, status,
         package_items ( service_id, quantity, sessions_used,
-          services ( id, tenant_id, name, category, duration_min, price ) )
+          services ( id, tenant_id, name, category, duration_min, price, capacity ) )
       `)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
@@ -385,7 +387,14 @@ export const supabaseBackend = {
     return data.map(mapAppointment)
   },
 
-  async getAvailability({ professionalId, dateKey, durationMin }) {
+  /**
+   * Horarios libres de un profesional para un día.
+   *
+   * `capacity` es cuánta gente entra por turno en el servicio elegido: con
+   * más de 1 el hueco sigue apareciendo mientras queden lugares en esa
+   * misma clase, y desaparece cuando se llena.
+   */
+  async getAvailability({ professionalId, dateKey, durationMin, capacity = 1 }) {
     const [pro, wh, appts] = await Promise.all([
       supabase.from('professionals').select('slot_interval_min').eq('id', professionalId).single(),
       supabase.from('working_hours').select('weekday, start_time, end_time').eq('professional_id', professionalId),
@@ -398,7 +407,8 @@ export const supabaseBackend = {
     ])
     fail(pro.error || wh.error || appts.error, 'No pudimos cargar la disponibilidad.')
 
-    return computeDaySlots({
+    return soloHorarios(computeDaySlots({
+      capacity,
       workingHours: wh.data.map((w) => ({
         weekday: w.weekday,
         start: String(w.start_time).slice(0, 5),
@@ -413,10 +423,10 @@ export const supabaseBackend = {
       dateKey,
       durationMin,
       intervalMin: pro.data.slot_interval_min,
-    })
+    }))
   },
 
-  async getMonthAvailability({ professionalId, dateKeys, durationMin }) {
+  async getMonthAvailability({ professionalId, dateKeys, durationMin, capacity = 1 }) {
     if (dateKeys.length === 0) return {}
     const from = dateKeys[0]
     const to = dateKeys[dateKeys.length - 1]
@@ -449,6 +459,7 @@ export const supabaseBackend = {
     const out = {}
     for (const dateKey of dateKeys) {
       out[dateKey] = computeDaySlots({
+        capacity,
         workingHours,
         appointments,
         dateKey,
@@ -783,16 +794,29 @@ export const supabaseBackend = {
     }
     fail(error, 'No pudimos crear la cita.')
 
+    // Si el enlace falla, la cita ya insertada quedaría ocupando el horario
+    // sin servicios: se borra antes de propagar el error. El cupo de las
+    // clases grupales se valida justo acá, al enlazar el servicio.
     const { error: linkError } = await supabase
       .from('appointment_services')
       .insert(serviceIds.map((id) => ({ appointment_id: cita.id, service_id: id })))
-    fail(linkError, 'La cita se creó pero no pudimos asociar los servicios.')
+
+    if (linkError) {
+      await supabase.from('appointments').delete().eq('id', cita.id)
+      if (/completo|lugares/i.test(linkError.message || '')) {
+        throw new Error('Ese turno ya está completo. Elegí otro horario.')
+      }
+      if (/overlap|exclusion|23P01|superpone/i.test(`${linkError.message} ${linkError.code}`)) {
+        throw new Error('Ese horario acaba de ocuparse. Elegí otro, por favor.')
+      }
+      fail(linkError, 'No pudimos asociar los servicios a la cita.')
+    }
 
     return cita
   },
 
   /** Alta o edición de un servicio del catálogo. */
-  async saveService({ id, tenantId, name, category, durationMin, price, active }) {
+  async saveService({ id, tenantId, name, category, durationMin, price, active, capacity }) {
     const fila = {
       tenant_id: tenantId,
       name: name.trim(),
@@ -800,6 +824,7 @@ export const supabaseBackend = {
       duration_min: Number(durationMin),
       price: Number(price),
       active: active !== false,
+      capacity: Math.max(1, Number(capacity) || 1),
     }
     const query = id
       ? supabase.from('services').update(fila).eq('id', id).select('*')
@@ -1208,6 +1233,7 @@ const mapAgendaRow = (r) => ({
   clientEmail: r.client_email,
   professionalId: r.professional_id,
   professionalName: r.professional_name,
+  slotCapacity: Number(r.slot_capacity ?? 1),
   servicesLabel: r.services_label,
   totalPrice: Number(r.total_price || 0),
 })

@@ -7,7 +7,7 @@ import { useAsync } from '../hooks/useAsync'
 import { EmptyState, ErrorState, Field, Modal, Skeleton, Spinner } from '../components/ui'
 import { formatDuration, formatGs } from '../utils/format'
 
-const VACIO = { name: '', category: '', durationMin: 60, price: 0 }
+const VACIO = { name: '', category: '', durationMin: 60, price: 0, capacity: 1 }
 
 export default function AdminServices() {
   const { staff } = useAuth()
@@ -124,6 +124,11 @@ export default function AdminServices() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-sand-900">{s.name}</span>
                       {!s.active && <span className="chip bg-sand-100 text-sand-600">Dado de baja</span>}
+                      {s.capacity > 1 && (
+                        <span className="chip bg-primary-100 text-primary-800">
+                          Grupal · {s.capacity} lugares
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 text-sm text-sand-500">{formatDuration(s.durationMin)}</p>
                   </div>
@@ -193,6 +198,7 @@ function ServiceModal({ open, onClose, onSaved, tenantId, servicio, categorias }
               category: servicio.category,
               durationMin: servicio.durationMin,
               price: servicio.price,
+              capacity: servicio.capacity ?? 1,
             }
           : VACIO,
       )
@@ -208,6 +214,7 @@ function ServiceModal({ open, onClose, onSaved, tenantId, servicio, categorias }
     if (!String(form.category).trim()) e.category = 'Elegí o escribí una categoría.'
     if (!Number(form.durationMin) || Number(form.durationMin) < 5) e.durationMin = 'Mínimo 5 minutos.'
     if (Number(form.price) < 0) e.price = 'El precio no puede ser negativo.'
+    if (!Number(form.capacity) || Number(form.capacity) < 1) e.capacity = 'Mínimo 1 persona.'
     setErrores(e)
     if (Object.keys(e).length > 0) return
 
@@ -220,6 +227,7 @@ function ServiceModal({ open, onClose, onSaved, tenantId, servicio, categorias }
         category: form.category,
         durationMin: form.durationMin,
         price: form.price,
+        capacity: form.capacity,
         active: servicio ? servicio.active : true,
       })
       toast.success(editando ? 'Servicio actualizado.' : 'Servicio creado.')
@@ -298,9 +306,32 @@ function ServiceModal({ open, onClose, onSaved, tenantId, servicio, categorias }
           </Field>
         </div>
 
+        <Field
+          label="Personas por turno"
+          htmlFor="svc-cupos"
+          required
+          error={errores.capacity}
+          hint={
+            Number(form.capacity) > 1
+              ? `Clase grupal: entran ${form.capacity} personas en el mismo horario y el turno deja de ofrecerse cuando se llena.`
+              : 'Dejalo en 1 para atención individual. Subilo para clases grupales, como pilates.'
+          }
+        >
+          <input
+            id="svc-cupos"
+            type="number"
+            min="1"
+            step="1"
+            className="input"
+            value={form.capacity}
+            onChange={set('capacity')}
+          />
+        </Field>
+
         {Number(form.durationMin) > 0 && (
           <p className="rounded-xl bg-sand-100 px-3 py-2 text-sm text-sand-700">
             {formatDuration(Number(form.durationMin))} · <span className="tabular font-semibold">{formatGs(form.price)}</span>
+            {Number(form.capacity) > 1 && <> · {form.capacity} lugares por turno</>}
           </p>
         )}
 

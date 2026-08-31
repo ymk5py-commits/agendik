@@ -39,6 +39,12 @@ export default function NewAppointmentModal({ open, onClose, onCreated, tenantId
     [servicios.data, serviciosElegidos],
   )
 
+  // Igual que en la base: manda el servicio más restrictivo del combo.
+  const cupoDelTurno = useMemo(() => {
+    const elegidos = (servicios.data || []).filter((s) => serviciosElegidos.includes(s.id))
+    return elegidos.length ? Math.min(...elegidos.map((s) => s.capacity ?? 1)) : 1
+  }, [servicios.data, serviciosElegidos])
+
   const total = useMemo(
     () =>
       (servicios.data || [])
@@ -51,9 +57,9 @@ export default function NewAppointmentModal({ open, onClose, onCreated, tenantId
   const disponibles = useAsync(
     () =>
       profesionalId && fecha && duracion
-        ? backend.getAvailability({ professionalId: profesionalId, dateKey: fecha, durationMin: duracion })
+        ? backend.getAvailability({ professionalId: profesionalId, dateKey: fecha, durationMin: duracion, capacity: cupoDelTurno })
         : Promise.resolve([]),
-    [profesionalId, fecha, duracion],
+    [profesionalId, fecha, duracion, cupoDelTurno],
     { initialData: [] },
   )
 
