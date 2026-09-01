@@ -153,6 +153,22 @@ const APPT_SELECT = `
   appointment_services ( service_id, services ( id, tenant_id, name, category, duration_min, price, capacity ) )
 `
 
+
+/**
+ * Dispara el aviso por correo al cliente. Nunca bloquea ni rompe la
+ * operación: si el mail falla, la cita ya quedó bien guardada y el error
+ * solo se registra en consola.
+ */
+function avisar(evento, appointmentId) {
+  if (!appointmentId) return
+  supabase.functions
+    .invoke('notificar', { body: { appointment_id: appointmentId, evento } })
+    .then(({ error }) => {
+      if (error) console.warn('No se pudo mandar el aviso por mail:', error.message)
+    })
+    .catch((e) => console.warn('No se pudo mandar el aviso por mail:', e?.message))
+}
+
 export const supabaseBackend = {
   mode: 'supabase',
 
@@ -504,6 +520,7 @@ export const supabaseBackend = {
       .eq('id', apptId)
       .single()
     fail(readError, 'La cita se creó pero no pudimos leerla.')
+    avisar('creada', apptId)
     return mapAppointment(full)
   },
 
@@ -516,6 +533,7 @@ export const supabaseBackend = {
       .select(APPT_SELECT)
       .maybeSingle()
     fail(error, 'No pudimos cancelar la cita.')
+    if (data) avisar('cancelada', appointmentId)
     if (!data) throw new Error('Esa cita ya no se puede cancelar.')
     if (data.package_id) {
       await supabase.rpc('restore_package_sessions', {
@@ -812,6 +830,7 @@ export const supabaseBackend = {
       fail(linkError, 'No pudimos asociar los servicios a la cita.')
     }
 
+    avisar('creada', cita.id)
     return cita
   },
 
@@ -1125,6 +1144,7 @@ export const supabaseBackend = {
     }
     fail(error, 'No pudimos reprogramar la cita.')
     if (!data || data.length === 0) throw new Error('No tenés permiso para mover esta cita.')
+    avisar('reprogramada', appointmentId)
     return data[0]
   },
 
@@ -1214,6 +1234,9 @@ export const supabaseBackend = {
     if (!data || data.length === 0) {
       throw new Error('No tenés permiso para modificar esta cita.')
     }
+    // Confirmaciones y cancelaciones sí se avisan; "completada" no aporta.
+    if (status === 'confirmed') avisar('confirmada', appointmentId)
+    if (status === 'cancelled') avisar('cancelada', appointmentId)
     return data[0]
   },
 }

@@ -172,7 +172,7 @@ export default function RescheduleModal({ cita, onClose, onDone }) {
           )}
 
           <p className="rounded-xl bg-accent-50 px-3.5 py-2.5 text-xs text-accent-900">
-            Al cliente no le llega aviso automático: si la movés, contale vos.
+            Al guardar, al cliente le llega un mail con el nuevo horario.
           </p>
 
           <div className="flex justify-end gap-2 pt-1">
