@@ -1,4 +1,4 @@
-# Qué LLMs corren en el servidor de la empresa
+# Los LLM del servidor de la empresa
 
 El servidor de la oficina (Linux) se alcanza por Tailscale, igual que la Mac.
 Este script contesta una pregunta concreta: **qué modelos hay instalados ahí,
@@ -70,11 +70,90 @@ en localhost figuraba como expuesto.
 
 ---
 
+## Entrar por SSH
+
+Si hasta ahora entraste solo por AnyDesk, puede que el servidor **no tenga SSH
+prendido**: Ubuntu Server lo trae, Ubuntu Desktop no siempre. Eso se arregla
+una sola vez, y hay que hacerlo estando en la máquina — por AnyDesk, entonces.
+
+**Una vez, desde el escritorio del servidor:**
+
+```bash
+systemctl status ssh          # ¿está corriendo?
+sudo apt install openssh-server   # si no estaba
+sudo systemctl enable --now ssh   # que arranque en cada reinicio
+
+tailscale ip -4               # anotá esta dirección, empieza en 100.
+```
+
+**De ahí en más, desde tu Ubuntu:**
+
+```bash
+ssh usuario@100.x.x.x
+```
+
+Para no escribir la contraseña cada vez, dejá la llave puesta (una sola vez):
+
+```bash
+ssh-keygen -t ed25519         # si todavía no tenés una
+ssh-copy-id usuario@100.x.x.x
+```
+
+### Cuál dirección usar
+
+| Dirección | Desde dónde funciona |
+|---|---|
+| `100.x.x.x` (Tailscale) | desde cualquier lado, mientras las dos máquinas estén en el tailnet |
+| `192.168.x.x` (LAN) | **solo** estando conectado a la red de la oficina |
+
+La de Tailscale es fija y anda igual desde tu casa. La de la red local no sale
+de la oficina: ese rango existe por separado dentro de cada red, así que desde
+afuera no lleva a ninguna parte.
+
+---
+
+## Probar los modelos
+
+```bash
+bash probar-llm.sh                        # qué hay y qué está cargado
+bash probar-llm.sh --modelo llama3.1:8b   # probar uno
+bash probar-llm.sh --prompt "tu pregunta" --modelo llama3.1:8b
+bash probar-llm.sh --todos                # todos, uno por uno
+```
+
+Manda una consigna, muestra la respuesta y desglosa el tiempo en tres partes:
+cargar el modelo, leer la consigna y generar. Sin argumentos no genera nada.
+
+Para charlar de ida y vuelta conviene `ollama run <modelo>`, que es
+interactivo. El script sirve para lo otro: medir y comparar.
+
+**El desglose importa más que el total.** La primera consulta a un modelo que
+no estaba cargado se lleva entre 3 y 30 segundos solo en subirlo a memoria.
+Si mirás el total, un modelo rápido parece lentísimo la primera vez y rapidísimo
+la segunda, y ninguna de las dos lecturas sirve para comparar contra otro.
+La cifra que compara es **tokens/s de generación**.
+
+Como referencia: en GPU un modelo de 7-8B suele dar entre 30 y 80 tokens/s.
+Por debajo de 5 tokens/s casi seguro está corriendo en CPU — el script lo avisa.
+
+**`--todos` carga los modelos uno por uno**, y cada uno desaloja al anterior de
+la memoria. En un servidor que usa más gente, eso se nota del otro lado: el
+script avisa antes de arrancar.
+
+---
+
 ## Cómo se verificó
 
 Con stubs, porque el servidor no es alcanzable desde donde se escribió esto.
 Un `nvidia-smi`, un `ss` y un Ollama falso — un servidor HTTP en el 11434 que
-devuelve `/api/tags` y `/api/ps` con la forma real que tienen — para
-comprobar que los modelos, sus tamaños y lo cargado en memoria se parsean
-bien, y que el aviso de exposición salta con un `0.0.0.0:8080` y se queda
-callado cuando todo está en `127.0.0.1`.
+devuelve `/api/tags`, `/api/ps` y `/api/generate` con la forma real que
+tienen, tiempos en nanosegundos incluidos.
+
+Del **inventario**: que los modelos, sus tamaños y lo cargado en memoria se
+parseen bien, y que el aviso de exposición salte con un `0.0.0.0:8080` y se
+quede callado cuando todo está en `127.0.0.1`.
+
+Del **probador**: el desglose de tiempos contra una respuesta con números
+conocidos, un modelo lento a propósito para ver saltar el aviso de CPU, el
+nombre de modelo inexistente, y que al redirigir la salida a un archivo no
+queden códigos de color en el medio del texto.
