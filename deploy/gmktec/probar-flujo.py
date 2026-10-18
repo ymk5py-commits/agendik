@@ -2,12 +2,13 @@
 """Prueba de humo de Agendik contra un stack levantado (corre en el servidor, junto al .env).
 
 Hace lo que hace la app: registrar una cuenta, comprobar que el trigger creó la ficha, entrar,
-reservar, intentar sobrevender el mismo horario, llamar a la función `notificar` y confirmar que
-un cliente común no puede crear negocios ni leer fichas ajenas. Al terminar borra todo lo que creó.
+reservar, intentar sobrevender el mismo horario, encolar el aviso con `notificar`, vaciar la cola con el worker
+(en modo captura, leyendo la bandeja de Mailpit), pedir recuperar la contraseña y confirmar que un cliente común no
+puede crear negocios, ni leer fichas ajenas, ni tocar la cola de correos. Al terminar borra todo lo que creó.
 
   python3 probar-flujo.py [URL_BASE]      (por defecto http://127.0.0.1:3210, el borde local)
 """
-import datetime, json, os, secrets, subprocess, sys, urllib.error, urllib.request
+import datetime, json, os, secrets, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:3210").rstrip("/")
@@ -18,6 +19,7 @@ for linea in open(os.path.join(AQUI, ".env")):
         k, v = linea.split("=", 1)
         ENV[k] = v.strip('"')
 ANON = ENV["ANON_KEY"]
+MAILPIT = os.environ.get("MAILPIT_URL", "http://127.0.0.1:3212")
 
 fallos = []
 def chequeo(nombre, ok, detalle=""):
@@ -114,20 +116,70 @@ try:
     st, r = llamar("GET", "/rest/v1/appointments?select=id,status", token=tok)
     chequeo("el cliente ve su cita", st == 200 and len(r) == 1, (st, r))
 
-    # `notificar` valida el JWT en el gateway y el dueño de la cita en la función (leyendo la cita por REST con la
-    # clave de servicio). La respuesta propia de la función trae la clave `ok`: si llegó ahí, todo el camino anda.
-    # Si Brevo contesta 401/403, falta BREVO_API_KEY en .env (el aviso por mail no sale, pero la cita ya está guardada).
+    # --- Correo: `notificar` valida el JWT en el gateway y el dueño de la cita en la función, y DEJA EL MAIL EN LA COLA.
     st, r = llamar("POST", "/functions/v1/notificar", {"appointment_id": cita, "evento": "creada"}, token=tok)
-    llego = isinstance(r, dict) and "ok" in r
-    chequeo("la función notificar responde (gateway → runtime → REST)", llego, (st, r))
-    if llego and not r["ok"]:
-        print("         aviso: Brevo respondió", r.get("brevo"), "→ falta/está mal BREVO_API_KEY en .env")
-    elif llego:
-        print("         mail enviado")
+    chequeo("notificar encola el aviso (gateway → runtime → REST → cola)",
+            st == 200 and isinstance(r, dict) and r.get("ok") is True and r.get("en_cola"), (st, r))
     st, r = llamar("POST", "/functions/v1/notificar", {"appointment_id": cita, "evento": "creada"})
     chequeo("notificar sin sesión de usuario se rechaza", st in (401, 403), (st, r))
+    en_cola = psql(f"select estado from public.cola_correos where para = '{email}' and evento = 'creada';").stdout.split()
+    chequeo("el aviso quedó pendiente en la cola", en_cola == ["pendiente"], en_cola)
+
+    st, r = llamar("POST", "/rest/v1/rpc/encolar_correo", {"p_para": "x@agendik.invalid", "p_asunto": "x", "p_html": "x"}, token=tok)
+    chequeo("un usuario NO puede encolar correos (solo service_role)", st in (401, 403), (st, r))
+    st, r = llamar("GET", "/rest/v1/cola_correos?select=id", token=tok)
+    chequeo("un usuario NO puede leer la cola", st in (401, 403) or r == [], (st, r))
+
+    if ENV.get("SMTP_HOST") == "mailpit":   # modo captura: se puede correr el worker y leer la bandeja sin enviar nada afuera
+        def mp(metodo, ruta):
+            req = urllib.request.Request(MAILPIT + ruta, method=metodo)
+            with urllib.request.urlopen(req, timeout=15) as x:
+                txt = x.read().decode()
+                return json.loads(txt) if txt.startswith(("{", "[")) else txt
+        def bandeja():
+            return mp("GET", "/api/v1/search?query=" + urllib.parse.quote(f"to:{email}")).get("messages", [])
+
+        w = subprocess.run(["docker", "compose", "--env-file", ".env", "run", "--rm", "-T", "correo"],
+                           cwd=AQUI, capture_output=True, text=True)
+        chequeo("el worker vacía la cola por SMTP", w.returncode == 0 and "enviados=1" in w.stdout, (w.stdout + w.stderr)[-200:])
+        msgs = bandeja()
+        chequeo("el aviso llegó a la bandeja con el asunto correcto",
+                len(msgs) == 1 and "quedó agendada" in msgs[0]["Subject"], [m["Subject"] for m in msgs])
+        if msgs:
+            cuerpo = mp("GET", f"/api/v1/message/{msgs[0]['ID']}")
+            portal = ENV["SITE_URL"].rstrip("/") + "/n/" + tenant["slug"]
+            chequeo("el link del mail apunta al portal nuevo (no a Vercel)",
+                    portal in cuerpo.get("HTML", "") and "vercel.app" not in cuerpo.get("HTML", ""), portal)
+        estado = psql(f"select estado from public.cola_correos where para = '{email}' and evento = 'creada';").stdout.split()
+        chequeo("y la cola lo marcó como enviado", estado == ["enviado"], estado)
+
+        w2 = subprocess.run(["docker", "compose", "--env-file", ".env", "run", "--rm", "-T", "correo"],
+                            cwd=AQUI, capture_output=True, text=True)
+        chequeo("una segunda corrida no reenvía nada (sin duplicados)", "cola vacía" in w2.stdout and len(bandeja()) == 1, w2.stdout[-120:])
+
+        st, r = llamar("POST", "/auth/v1/recover", {"email": email})
+        chequeo("recuperar contraseña: GoTrue acepta el pedido", st == 200, (st, r))
+        for _ in range(15):
+            if len(bandeja()) >= 2:
+                break
+            time.sleep(1)
+        rec = [m for m in bandeja() if "quedó agendada" not in m["Subject"]]
+        chequeo("y el mail de recuperación llega por el mismo SMTP", len(rec) == 1, [m["Subject"] for m in bandeja()])
+        if rec:
+            cuerpo = mp("GET", f"/api/v1/message/{rec[0]['ID']}")
+            chequeo("con el link de verificación del dominio público",
+                    ENV["API_EXTERNAL_URL"].rstrip("/") + "/verify" in cuerpo.get("HTML", "") + cuerpo.get("Text", ""), ENV["API_EXTERNAL_URL"])
+    else:
+        print("         (SMTP real cargado: se omite el envío del worker y la bandeja; la cola se limpia igual)")
 finally:
     if uid:
+        psql(f"delete from public.cola_correos where para = '{email}';")
+        if ENV.get("SMTP_HOST") == "mailpit":
+            try:
+                urllib.request.urlopen(urllib.request.Request(
+                    MAILPIT + "/api/v1/search?query=" + urllib.parse.quote(f"to:{email}"), method="DELETE"), timeout=15)
+            except Exception:
+                pass
         psql(f"delete from public.appointments where client_id in (select id from public.clients where user_id = '{uid}');"
              f"delete from public.clients where user_id = '{uid}'; delete from auth.users where id = '{uid}';")
     if sembrado:

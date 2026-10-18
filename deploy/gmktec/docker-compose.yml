@@ -1,11 +1,12 @@
 # Agendik — Supabase propio + portal (aislado de los otros stacks del servidor).
 # Mismas piezas oficiales que usa Botika (Postgres, GoTrue, PostgREST, Studio, gateway Envoy),
 # recortadas a lo que Agendik usa: sin realtime ni storage. Se suma el runtime de funciones
-# para `notificar` (mails al cliente).
+# para `notificar`, y la cola de correos (Mailpit + worker `correo`): sin servicios de pago.
 #
 # Puertos (solo 127.0.0.1):
 #   3210  borde Caddy → sale por el túnel de Cloudflare (portal + /auth + /rest + /functions)
 #   3211  gateway     → Studio (admin de Supabase), solo por túnel SSH o Tailscale
+#   3212  Mailpit    → bandeja de los mails capturados (mientras no haya SMTP real), solo por túnel SSH o Tailscale
 name: agendik-sb
 
 x-logging: &logging
@@ -156,9 +157,8 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
-      # Correo de `notificar` (Brevo). Sin clave la función responde error y la app lo ignora: la cita igual se guarda.
-      BREVO_API_KEY: ${BREVO_API_KEY:-}
-      BREVO_SENDER: ${BREVO_SENDER:-}
+      # `notificar` deja el mail en la cola (cola_correos); lo envía el worker `correo`. El link del mail apunta al portal:
+      PORTAL_URL: ${SITE_URL}
     command:
       [
         "start",
@@ -167,6 +167,44 @@ services:
         "--main-service",
         "/home/deno/functions/main"
       ]
+
+  # Correo saliente. Sin SMTP real cargado (SMTP_HOST=mailpit) todo se captura acá y NADA sale del servidor:
+  # los mails se leen en http://127.0.0.1:3212. Con un SMTP real cargado este servicio queda sin uso.
+  mailpit:
+    container_name: ag-mailpit
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    mem_limit: 128m
+    logging: *logging
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - 127.0.0.1:3212:8025/tcp
+
+  # Worker de la cola de correos. No queda levantado: lo dispara un timer cada minuto
+  # (`docker compose run --rm correo`, ver correo/instalar-temporizador.sh).
+  correo:
+    profiles: ["tareas"]
+    image: python:3.12-alpine
+    mem_limit: 128m
+    logging: *logging
+    depends_on:
+      rest:
+        condition: service_healthy
+    volumes:
+      - ./correo:/app:ro
+    environment:
+      REST_URL: http://rest:3000
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+      SMTP_SENDER_NAME: ${SMTP_SENDER_NAME}
+    command: ["python", "/app/enviar.py"]
 
   meta:
     container_name: ag-meta
