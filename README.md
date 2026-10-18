@@ -187,6 +187,13 @@ vencimiento del token.
 
 ---
 
+## Producción en el servidor propio (gmktec)
+
+Hay una instalación completa en el mini PC: Supabase propio + el portal servidos en https://agendik.botika.lat por un túnel de
+Cloudflare. Todo está en [`deploy/gmktec/`](deploy/gmktec/README.md) — `./deploy/gmktec/desplegar.sh` la actualiza desde la Mac.
+
+---
+
 ## Deploy en Vercel
 
 El `vercel.json` incluye el rewrite `/(.*) → /index.html`, necesario para que

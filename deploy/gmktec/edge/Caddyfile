@@ -1,0 +1,43 @@
+{
+	admin off
+	auto_https off
+}
+
+:80 {
+	# Rutas de administración de GoTrue: nunca por Internet.
+	# OJO: tiene que ser un `handle` y estar primero; con un `respond` suelto, Caddy evalúa antes los `handle`.
+	@bloqueadas path /auth/v1/admin /auth/v1/admin/*
+	handle @bloqueadas {
+		respond 404
+	}
+
+	# API pública: autenticación, datos con RLS y funciones. Agendik no usa realtime ni storage.
+	@supabase path /auth/v1/* /rest/v1/* /functions/v1/*
+	handle @supabase {
+		reverse_proxy api-gw:8000 {
+			header_up X-Forwarded-For {header.CF-Connecting-IP}
+			header_up X-Real-IP {header.CF-Connecting-IP}
+		}
+	}
+
+	# Todo lo demás es el portal (SPA de Vite): archivos estáticos con salida a index.html.
+	handle {
+		root * /srv
+		encode zstd gzip
+
+		@hasheados path /assets/*
+		header @hasheados Cache-Control "public, max-age=31536000, immutable"
+		@documento not path /assets/*
+		header @documento Cache-Control "no-cache"
+
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}

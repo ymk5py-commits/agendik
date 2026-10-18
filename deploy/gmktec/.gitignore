@@ -1,0 +1,10 @@
+# Nada de esto va al repo: secretos, datos y artefactos del servidor.
+.env
+.env.*
+!env.ejemplo
+volumes/db/data/
+volumes/snippets/
+volumes/functions/notificar/
+site/
+respaldo/*.dump
+*.bak-*
