@@ -1,6 +1,7 @@
 import { supabase, DEFAULT_TENANT } from './supabaseClient'
 import { computeDaySlots, soloHorarios } from '../data/slots'
 import { addMinutesToTime } from '../utils/format'
+import { constanciaDeAceptacion } from '../config/legal'
 
 /** Traduce errores de Supabase a mensajes que el cliente entiende */
 function fail(error, fallback) {
@@ -190,6 +191,22 @@ export const supabaseBackend = {
     return data ? mapTenant(data) : null
   },
 
+  /**
+   * La vidriera del portal (/n/<slug>): servicios, equipo y horario de cada día, sin iniciar sesión.
+   * Sale de la función catalogo_publico, que expone solo esos campos. null si el negocio no existe.
+   */
+  async getCatalogoPublico(slug) {
+    if (!slug) return null
+    const { data, error } = await supabase.rpc('catalogo_publico', { p_slug: slug })
+    fail(error, 'No pudimos cargar los servicios del negocio.')
+    if (!data) return null
+    return {
+      servicios: (data.servicios || []).map((s) => ({ ...s, price: Number(s.price) || 0, capacity: s.capacity || 1 })),
+      equipo: (data.equipo || []).map((pro) => ({ ...pro, specialties: pro.specialties || [] })),
+      horarios: data.horarios || [],
+    }
+  },
+
   async signIn({ email, password }) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
@@ -218,7 +235,8 @@ export const supabaseBackend = {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
-      options: { data: { name, phone, tenant_id: tenant.id } },
+      // La constancia (versión y fecha de las políticas aceptadas) queda en la cuenta como prueba de la aceptación.
+      options: { data: { name, phone, tenant_id: tenant.id, ...constanciaDeAceptacion() } },
     })
     fail(error, 'No pudimos crear tu cuenta.')
 

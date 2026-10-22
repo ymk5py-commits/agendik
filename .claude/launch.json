@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5180"],
       "port": 5180
+    },
+    {
+      "name": "agendik-legal-ejemplo",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["VITE_LEGAL_EJEMPLO=1", "npm", "run", "dev", "--", "--port", "5182", "--strictPort"],
+      "port": 5182
     }
   ]
 }

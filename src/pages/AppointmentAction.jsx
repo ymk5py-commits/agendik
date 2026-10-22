@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { AlertTriangle, Check, Clock, User, X } from 'lucide-react'
 import { backend } from '../api/backend'
 import { useAsync } from '../hooks/useAsync'

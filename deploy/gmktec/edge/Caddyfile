@@ -38,6 +38,14 @@
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		Strict-Transport-Security "max-age=31536000"
+		# Nadie puede mostrar Agendik dentro de otro sitio (clickjacking).
+		X-Frame-Options DENY
+		Cross-Origin-Opener-Policy same-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		# Todo sale de este servidor salvo el contador de visitas de Cloudflare (sin cookies; ver /cookies).
+		# 'unsafe-inline' en estilos: lo necesitan los avisos (react-hot-toast inyecta un <style>) y los style={{}} de React.
+		# Probada en modo solo reporte el 22-oct-2026 (sin violaciones) antes de hacerla obligatoria.
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 		-Server
 	}
 }

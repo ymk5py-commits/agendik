@@ -7,7 +7,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
+          react: ['react', 'react-dom', 'react-router'],
           supabase: ['@supabase/supabase-js'],
           forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
         },

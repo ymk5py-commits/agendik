@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router'
 import {
   Building2,
   CalendarDays,
@@ -18,6 +18,7 @@ import { useAuth } from '../../context/AuthContext'
 import { isDemoMode } from '../../api/backend'
 import { Logo, LogoMark } from '../Logo'
 import { BusinessMark } from '../BusinessMark'
+import { LegalLinks } from '../legal/LegalLinks'
 import { initials } from '../../utils/format'
 
 const NAV_CLIENTE = [
@@ -99,9 +100,9 @@ export default function AppLayout({ children }) {
         <div className="container-app flex h-16 items-center justify-between gap-4">
           <NavLink
             to={inicio}
-            className="flex min-h-[44px] min-w-0 shrink-0 items-center gap-3 rounded-lg"
-            aria-label={`${conNegocio ? tenant.businessName : 'Agendik'}, ir al inicio`}
+            className="flex min-h-[44px] min-w-0 items-center gap-3 rounded-lg"
           >
+            {/* Sin aria-label: el nombre accesible sale del texto visible (WCAG 2.5.3) y se completa acá abajo. */}
             {conNegocio ? (
               <>
                 <BusinessMark name={tenant.businessName} className="h-10 w-10 text-base" />
@@ -115,6 +116,7 @@ export default function AppLayout({ children }) {
             ) : (
               <Logo subtitle="Administración" />
             )}
+            <span className="sr-only">, ir al inicio</span>
           </NavLink>
 
           <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Navegación principal">
@@ -150,7 +152,7 @@ export default function AppLayout({ children }) {
             onClick={() => setDrawerOpen(true)}
             aria-label="Abrir menú"
             aria-expanded={drawerOpen}
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-800 transition-colors hover:bg-sand-100 lg:hidden"
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-sand-800 transition-colors hover:bg-sand-100 lg:hidden"
           >
             <Menu className="h-6 w-6" aria-hidden="true" />
           </button>
@@ -235,7 +237,10 @@ export default function AppLayout({ children }) {
             <span className="font-display font-bold text-primary-950">Agendik</span>
             {conNegocio && <span className="hidden sm:inline">· {tenant.businessName}</span>}
           </p>
-          <p>Horarios en zona América/Asunción</p>
+          <div className="flex flex-col gap-1 sm:items-end">
+            <p>Horarios en zona América/Asunción</p>
+            <LegalLinks />
+          </div>
         </div>
       </footer>
     </div>

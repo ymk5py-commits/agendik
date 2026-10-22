@@ -219,7 +219,6 @@ export default function StepServices({
                   type="button"
                   onClick={() => onToggleService(service.id)}
                   aria-pressed={selected}
-                  aria-label={`${service.name}, ${formatDuration(service.durationMin)}, ${formatGs(service.price)}`}
                   className="option"
                 >
                   <div className="min-w-0">

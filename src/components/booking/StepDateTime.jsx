@@ -20,6 +20,13 @@ import { toDateKey } from '../../utils/format'
 
 const WEEKDAY_LABELS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá']
 
+/** Franjas del día para agrupar horarios (horas «HH:MM», se comparan como texto). */
+const FRANJAS = [
+  ['Mañana', (h) => h < '12:00'],
+  ['Tarde', (h) => h >= '12:00' && h < '18:00'],
+  ['Noche', (h) => h >= '18:00'],
+]
+
 export default function StepDateTime({ professionalId, durationMin, capacity = 1, selectedDate, selectedTime, onSelectDate, onSelectTime }) {
   const [month, setMonth] = useState(() => startOfMonth(selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date()))
 
@@ -186,28 +193,43 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
               {slots.data.length} horario{slots.data.length > 1 ? 's' : ''} disponible
               {slots.data.length > 1 ? 's' : ''}
             </p>
+            {/* Por franja, como en Booksy o Fresha: con muchos horarios se encuentra el buscado de un vistazo.
+                En el celular la lista crece con la página (sin scroll anidado); en escritorio tiene tope. */}
             <div
-              className="mt-3 grid max-h-80 grid-cols-3 gap-2 overflow-y-auto pr-1"
+              className="mt-3 space-y-4 lg:max-h-[28rem] lg:overflow-y-auto lg:pr-1"
               role="radiogroup"
               aria-label="Horarios disponibles"
             >
-              {slots.data.map((time) => {
-                const selected = selectedTime === time
+              {FRANJAS.map(([franja, entra]) => {
+                const horas = slots.data.filter(entra)
+                if (horas.length === 0) return null
                 return (
-                  <button
-                    key={time}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => onSelectTime(time)}
-                    className={`min-h-[44px] cursor-pointer rounded-xl text-base font-semibold tabular transition-colors duration-150 ${
-                      selected
-                        ? 'bg-primary-800 text-white'
-                        : 'bg-white text-sand-800 ring-1 ring-inset ring-edge hover:bg-primary-50 hover:text-primary-900 hover:ring-primary-500'
-                    }`}
-                  >
-                    {time}
-                  </button>
+                  <div key={franja}>
+                    <p className="text-sm font-semibold text-sand-800">
+                      {franja} <span className="tabular font-normal text-sand-600">· {horas.length}</span>
+                    </p>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {horas.map((time) => {
+                        const selected = selectedTime === time
+                        return (
+                          <button
+                            key={time}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => onSelectTime(time)}
+                            className={`min-h-[44px] cursor-pointer rounded-xl text-base font-semibold tabular transition-colors duration-150 ${
+                              selected
+                                ? 'bg-primary-800 text-white'
+                                : 'bg-white text-sand-800 ring-1 ring-inset ring-edge hover:bg-primary-50 hover:text-primary-900 hover:ring-primary-500'
+                            }`}
+                          >
+                            {time}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 )
               })}
             </div>

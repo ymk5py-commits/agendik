@@ -3,11 +3,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
-import { KeyRound, Mail, ShieldCheck } from 'lucide-react'
+import { Download, FileText, KeyRound, Mail, ShieldCheck, UserX } from 'lucide-react'
+import { Link } from 'react-router'
 import { useAuth } from '../context/AuthContext'
 import { backend } from '../api/backend'
 import { ErrorBanner, Field, Spinner } from '../components/ui'
-import { initials } from '../utils/format'
+import { initials, toDateKey } from '../utils/format'
+import { OPERADOR, legalListo } from '../config/legal'
 
 const profileSchema = z.object({
   name: z.string().min(3, 'Escribí tu nombre completo.'),
@@ -56,6 +58,7 @@ export default function Profile() {
 
       <ProfileForm />
       <PasswordForm />
+      <MisDatos />
     </div>
   )
 }
@@ -246,6 +249,84 @@ function PasswordForm() {
             </button>
           </div>
         </form>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Derechos de acceso y portabilidad (Ley 7593/2025): la persona se lleva una copia de todo lo suyo sin pedírselo a
+ * nadie. La baja va por correo porque el negocio puede tener que conservar parte del historial por ley.
+ */
+function MisDatos() {
+  const { client, tenant } = useAuth()
+  const [descargando, setDescargando] = useState(false)
+
+  const descargar = async () => {
+    setDescargando(true)
+    try {
+      const [citas, paquetes, planes] = await Promise.all([
+        backend.getAppointments(client.id),
+        backend.getPackages(client.id).catch(() => []),
+        backend.getMyPlans().catch(() => []),
+      ])
+      const copia = {
+        generado: new Date().toISOString(),
+        negocio: tenant?.businessName ?? null,
+        perfil: client,
+        citas,
+        paquetes,
+        planes,
+      }
+      const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }))
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = `mis-datos-agendik-${toDateKey(new Date())}.json`
+      enlace.click()
+      URL.revokeObjectURL(url)
+      toast.success('Listo: descargamos una copia de tus datos.')
+    } catch {
+      toast.error('No pudimos preparar la copia. Probá de nuevo en un rato.')
+    } finally {
+      setDescargando(false)
+    }
+  }
+
+  const pedidoDeBaja = `mailto:${OPERADOR.email}?subject=${encodeURIComponent('Baja de mi cuenta de Agendik')}&body=${encodeURIComponent(
+    `Hola. Quiero dar de baja mi cuenta y que se borren mis datos.\n\nCorreo de la cuenta: ${client?.email ?? ''}\nNegocio: ${tenant?.businessName ?? ''}`,
+  )}`
+
+  return (
+    <section className="card">
+      <h2 className="flex items-center gap-2 font-display text-xl font-bold">
+        <FileText className="h-5 w-5 text-primary-600" aria-hidden="true" />
+        Tus datos
+      </h2>
+      <p className="mt-0.5 text-base text-sand-700">
+        Llevate una copia de todo lo que guardamos sobre vos{legalListo ? ', o pedí que lo borremos' : ''}.
+      </p>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button type="button" onClick={descargar} disabled={descargando} className="btn-outline">
+          {descargando ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" aria-hidden="true" />}
+          {descargando ? 'Preparando…' : 'Descargar mis datos'}
+        </button>
+        {legalListo && (
+          <a href={pedidoDeBaja} className="btn-ghost text-rose-700 hover:bg-rose-50 hover:text-rose-800">
+            <UserX className="h-4 w-4" aria-hidden="true" />
+            Pedir la baja de mi cuenta
+          </a>
+        )}
+      </div>
+
+      {legalListo && (
+        <p className="mt-4 text-sm text-sand-700">
+          Respondemos los pedidos dentro de los 30 días. Más detalles en la{' '}
+          <Link to="/privacidad" className="font-semibold text-primary-800 underline underline-offset-4 hover:text-primary-950">
+            Política de privacidad
+          </Link>
+          .
+        </p>
       )}
     </section>
   )

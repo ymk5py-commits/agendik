@@ -1,6 +1,6 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Narrative Workflow · theme: custom (marca Agendik: petróleo / ámbar / arena, OKLCH)
- * fonts: Bricolage Grotesque + Geist · nav: N1a (2 destinos) · footer: Ft2 · enrichment: Tier A (grilla de agenda en CSS) + maquetas de producto
- * pre-emit critique: P4 H4 E4 S4 R4 V4 · contrast: pass (40-41) · slop: pass (42-45) · tokens: pass (48) · mobile: pass (34, 49, 50-57)
+/* Hallmark · genre: modern-minimal · macrostructure: ficha de negocio (portal) / producto con capturas (Agendik) · theme: custom (petróleo / ámbar / arena, OKLCH)
+ * fonts: Bricolage Grotesque + Geist (propias) · referencias estudiadas: Fresha (ficha y agenda por profesional), Cal.com (fecha y hora)
+ * enrichment: capturas reales del producto, sin maquetas ni adornos · pre-emit critique: P4 H4 E4 S5 R5 V4 · contrast: pass · slop: pass · mobile: pass
  * Ver DESIGN.md. Los colores y fuentes salen de tokens.css y tailwind.config.js; no se improvisan valores en los componentes.
  */
 @import './tokens.css';
@@ -160,35 +160,58 @@
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
 
-  /* ---------- Marca ---------- */
-  /*
-   * Motivo de «grilla de agenda»: renglones horarios y columnas de días en líneas finas, con unos pocos bloques
-   * reservados. Es el único adorno de las superficies oscuras y habla del producto (una agenda), no es decoración suelta.
-   */
-  .agenda-grid {
-    background-image:
-      repeating-linear-gradient(to bottom, transparent 0 55px, oklch(var(--primary-800) / 0.7) 55px 56px),
-      repeating-linear-gradient(to right, transparent 0 119px, oklch(var(--primary-800) / 0.45) 119px 120px);
+  /* ---------- Textos legales (Privacidad, Términos, Cookies) ---------- */
+  /* Lectura larga: 16px, interlineado amplio y el ancho lo limita la página (68ch). */
+  .legal-prose {
+    @apply space-y-4 text-base leading-relaxed text-sand-800;
+  }
+  .legal-prose ul {
+    @apply space-y-2.5 pl-5;
+    list-style: disc;
+  }
+  .legal-prose li::marker {
+    color: oklch(var(--primary-600));
+  }
+  .legal-prose strong {
+    @apply font-semibold text-primary-950;
+  }
+  .legal-prose a {
+    @apply font-medium text-primary-800 underline underline-offset-4 hover:text-primary-950;
+    overflow-wrap: anywhere;
+  }
+  .legal-prose code {
+    @apply whitespace-nowrap rounded bg-sand-100 px-1.5 py-0.5 text-[0.875rem] text-primary-950;
   }
 
-  /* ---------- Entrada al hacer scroll (una sola vez, solo transform + opacity) ---------- */
-  .reveal {
-    opacity: 0;
-    transform: translateY(14px);
-    transition:
-      opacity 560ms var(--ease-out),
-      transform 560ms var(--ease-out);
-    transition-delay: calc(var(--i, 0) * 70ms);
+  /* Datos del responsable: etiqueta y valor en una fila desde 640px, apilados en el celular */
+  .legal-datos {
+    @apply space-y-3 rounded-2xl border border-sand-200 bg-white p-5;
   }
-  .reveal.is-in {
-    opacity: 1;
-    transform: none;
+  .legal-datos > div {
+    @apply grid grid-cols-1 gap-0.5 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4;
   }
-  @media (prefers-reduced-motion: reduce) {
-    .reveal {
-      opacity: 1;
-      transform: none;
-      transition: none;
-    }
+  .legal-datos dt {
+    @apply text-sm font-semibold text-sand-600;
+  }
+  .legal-datos dd {
+    @apply min-w-0 text-base text-sand-900;
+    overflow-wrap: anywhere;
+  }
+
+  /* Tabla de cookies: en pantallas chicas se desplaza dentro de su recuadro, sin romper la página */
+  .legal-tabla {
+    @apply overflow-x-auto rounded-2xl border border-sand-200 bg-white;
+  }
+  .legal-tabla table {
+    @apply w-full min-w-[34rem] border-collapse text-left text-sm;
+  }
+  .legal-tabla th {
+    @apply bg-sand-100 px-4 py-3 font-semibold text-sand-900;
+  }
+  .legal-tabla td {
+    @apply border-t border-sand-200 px-4 py-3 align-top text-sand-800;
+  }
+  .legal-tabla td span {
+    @apply mt-1 block text-[0.8125rem] text-sand-600;
   }
 }

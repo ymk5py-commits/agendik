@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { ArrowRight, CalendarDays, Layers, Plus } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { backend } from '../api/backend'
@@ -53,7 +53,8 @@ export default function Dashboard() {
             {resumen.map(([n, texto]) => (
               <span key={texto}>
                 {appointments.loading ? (
-                  <Skeleton className="inline-block h-5 w-20 align-middle" />
+                  // Dentro de un <p> solo van elementos en línea: el esqueleto es un <span>, no el <div> de Skeleton.
+                  <span aria-hidden="true" className="inline-block h-5 w-20 animate-pulse rounded-xl bg-sand-200/70 align-middle" />
                 ) : (
                   <>
                     <span className="tabular font-semibold text-primary-950">{n}</span> {texto}

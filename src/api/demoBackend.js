@@ -45,6 +45,27 @@ export const demoBackend = {
     return load().tenant
   },
 
+  async getCatalogoPublico() {
+    await wait(160)
+    const db = load()
+    const equipo = db.professionals.filter((p) => p.active !== false)
+    const activos = new Set(equipo.map((p) => p.id))
+    const porDia = new Map()
+    for (const w of db.workingHours.filter((h) => activos.has(h.professionalId))) {
+      const dia = porDia.get(w.weekday) || { weekday: w.weekday, start: w.start, end: w.end }
+      if (w.start < dia.start) dia.start = w.start
+      if (w.end > dia.end) dia.end = w.end
+      porDia.set(w.weekday, dia)
+    }
+    return {
+      servicios: db.services
+        .filter((s) => s.active !== false)
+        .map(({ id, name, category, durationMin, price, capacity }) => ({ id, name, category, durationMin, price, capacity: capacity || 1 })),
+      equipo: equipo.map(({ id, name, specialties }) => ({ id, name, specialties: specialties || [] })),
+      horarios: [...porDia.values()].sort((a, b) => a.weekday - b.weekday),
+    }
+  },
+
   async signIn({ email, password }) {
     await wait()
     const db = load()
@@ -356,8 +377,23 @@ export const demoBackend = {
       ['x3', 0, '15:00', '15:45', 'reserved', 'Marta Vera', '', 'p3', 'Manicura Spa', 90000],
       ['x4', 1, '11:00', '12:30', 'confirmed', 'Julia Benítez', '+595 982 000 333', 'p2', 'Drenaje Linfático', 280000],
       ['x5', 2, '16:00', '17:00', 'cancelled', 'Lucía Montiel', '+595 985 000 444', 'p1', 'Peeling Ultrasónico', 220000],
+      // Un día de trabajo completo para que la demo (y las capturas de la página de Agendik) muestren la agenda real.
+      ['x6', 0, '11:00', '11:45', 'confirmed', 'Ana Giménez', '+595 981 100 201', 'p1', 'Peeling Ultrasónico', 220000],
+      ['x7', 0, '14:00', '15:30', 'confirmed', 'Laura Ortiz', '+595 982 100 202', 'p1', 'Drenaje Linfático', 280000],
+      ['x8', 0, '16:30', '17:30', 'reserved', 'Carmen Ruiz', '+595 983 100 203', 'p1', 'Limpieza Facial Profunda', 180000],
+      ['x9', 0, '09:30', '10:30', 'confirmed', 'Natalia Sosa', '+595 984 100 204', 'p2', 'Corte & Brushing', 150000],
+      ['x10', 0, '11:00', '12:30', 'confirmed', 'Gabriela Rojas', '+595 985 100 205', 'p2', 'Coloración Completa', 450000],
+      ['x11', 0, '15:00', '16:00', 'reserved', 'Mónica Duarte', '+595 986 100 206', 'p2', 'Corte & Brushing', 150000],
+      ['x12', 0, '17:00', '18:30', 'confirmed', 'Andrea López', '+595 981 100 207', 'p2', 'Coloración Completa', 450000],
+      ['x13', 0, '09:00', '09:45', 'completed', 'Rosa Martínez', '+595 982 100 208', 'p3', 'Manicura Spa', 90000],
+      ['x14', 0, '10:00', '11:00', 'confirmed', 'Elena Cabrera', '+595 983 100 209', 'p3', 'Pedicura Spa', 120000],
+      ['x15', 0, '13:00', '13:45', 'confirmed', 'Silvia Mendoza', '+595 984 100 210', 'p3', 'Manicura Spa', 90000],
+      ['x16', 0, '12:00', '13:00', 'confirmed', 'Diego Fernández', '+595 985 100 211', 'p4', 'Masaje Relajante', 200000],
+      ['x17', 0, '14:00', '15:30', 'reserved', 'Carolina Benítez', '+595 986 100 212', 'p4', 'Drenaje Linfático', 280000],
+      ['x18', 0, '18:00', '19:00', 'confirmed', 'Mariana Núñez', '+595 981 100 213', 'p4', 'Masaje Relajante', 200000],
     ].map(([id, n, startTime, endTime, status, clientName, clientPhone, professionalId, servicesLabel, totalPrice]) => ({
-      id, date: dia(n), startTime, endTime, durationMin: 60, status, notes: '', source: 'whatsapp', clientId: `cx-${id}`, clientName,
+      id, date: dia(n), startTime, endTime, status,
+      durationMin: (Number(endTime.slice(0, 2)) * 60 + Number(endTime.slice(3))) - (Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3))), notes: '', source: 'whatsapp', clientId: `cx-${id}`, clientName,
       clientPhone, clientEmail: '', professionalId, professionalName: nombre(professionalId), slotCapacity: 1, servicesLabel, totalPrice,
     }))
     return [...filas, ...ejemplo]

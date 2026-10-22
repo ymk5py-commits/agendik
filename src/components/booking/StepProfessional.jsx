@@ -48,7 +48,6 @@ export default function StepProfessional({
             type="button"
             onClick={() => onSelect(pro.id)}
             aria-pressed={selected}
-            aria-label={`${pro.name}, especialidades: ${pro.specialties.join(', ')}`}
             className="option justify-start"
           >
             <span

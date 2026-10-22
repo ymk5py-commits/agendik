@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Check, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTenant } from '../context/TenantContext'
 import { ErrorBanner, Field, Spinner } from '../components/ui'
 import { Logo, LogoMark } from '../components/Logo'
 import { BusinessMark } from '../components/BusinessMark'
-import { AgendaBackdrop } from '../components/landing/Fragments'
+import { CasillaLegal } from '../components/legal/CasillaLegal'
+import { LegalLinks } from '../components/legal/LegalLinks'
+import { legalListo } from '../config/legal'
 import { backend, isDemoMode } from '../api/backend'
 import { DEMO_CREDENTIALS } from '../data/demoData'
 
@@ -26,17 +28,15 @@ const registerSchema = z
     phone: z.string().min(6, 'Ingresá un teléfono de contacto.'),
     password: z.string().min(8, 'Usá al menos 8 caracteres.'),
     confirmPassword: z.string().min(1, 'Repetí la contraseña.'),
+    // Solo se exige cuando las políticas están publicadas (ver src/config/legal.js).
+    acepta: legalListo
+      ? z.boolean().refine(Boolean, 'Para crear la cuenta tenés que aceptar los términos y la política de privacidad.')
+      : z.boolean().optional(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: 'Las contraseñas no coinciden.',
     path: ['confirmPassword'],
   })
-
-const HIGHLIGHTS = [
-  'Reservá en cuatro pasos, a cualquier hora',
-  'Seguí las sesiones de tus paquetes',
-  'Confirmá o cancelá cuando quieras',
-]
 
 const TABS = [
   { id: 'login', label: 'Ingresar' },
@@ -49,52 +49,32 @@ export default function Login() {
   const { tenant, slug } = useTenant()
   const inicio = slug ? `/n/${slug}` : '/'
 
+  // Como el ingreso de Fresha o Cal.com: la barra del negocio arriba y el formulario solo, centrado. Sin eslóganes.
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-12">
-      {/* Panel de marca (solo desktop): el negocio al frente, Agendik de firma */}
-      <aside className="surface-dark relative hidden overflow-hidden bg-primary-950 p-12 lg:col-span-5 lg:flex lg:flex-col lg:justify-between xl:p-16">
-        <AgendaBackdrop />
-        <Link to={inicio} className="relative flex w-fit items-center gap-3 rounded-lg">
-          {tenant ? (
-            <>
-              <BusinessMark name={tenant.businessName} tone="light" />
-              <span className="font-display text-lg font-bold tracking-tight text-white">{tenant.businessName}</span>
-            </>
-          ) : (
-            <Logo subtitle="Portal de citas" tone="light" />
-          )}
-        </Link>
-
-        <div className="relative">
-          <h2 className="max-w-sm text-title font-extrabold text-white">Tu próxima cita, a un par de toques</h2>
-          <ul className="mt-8 space-y-3.5">
-            {HIGHLIGHTS.map((text) => (
-              <li key={text} className="flex items-center gap-3 text-base text-primary-100">
-                <Check className="h-5 w-5 shrink-0 text-accent-400" aria-hidden="true" />
-                {text}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="relative flex items-center gap-2 text-sm text-primary-200">
-          Reservas con <LogoMark tone="light" className="h-5 w-5" />
-          <span className="font-display font-bold text-white">Agendik</span>
-        </p>
-      </aside>
-
-      {/* Formularios, directo sobre el papel */}
-      <main className="flex min-h-dvh flex-col justify-center px-5 py-10 sm:px-10 lg:col-span-7 lg:px-16">
-        <div className="mx-auto w-full max-w-md">
-          <Link
-            to={inicio}
-            className="mb-8 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg text-sm font-medium text-sand-700 transition-colors hover:text-primary-800 lg:hidden"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {tenant ? `Volver a ${tenant.businessName}` : 'Volver al inicio'}
+    <div className="flex min-h-dvh flex-col bg-sand-50">
+      <header className="border-b border-sand-300 bg-white">
+        <div className="container-app flex h-16 items-center justify-between gap-4">
+          <Link to={inicio} className="flex min-h-[44px] min-w-0 items-center gap-3 rounded-lg">
+            {tenant ? (
+              <>
+                <BusinessMark name={tenant.businessName} className="h-9 w-9 text-sm" />
+                <span className="truncate font-display text-base font-bold text-primary-950">{tenant.businessName}</span>
+              </>
+            ) : (
+              <Logo />
+            )}
           </Link>
+          <Link to={inicio} className="btn-ghost shrink-0 px-3">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Volver
+          </Link>
+        </div>
+      </header>
 
-          <div role="tablist" aria-label="Ingresar o crear cuenta" className="mb-8 flex gap-7 border-b border-sand-300">
+      <main className="flex flex-1 justify-center px-4 py-10 sm:py-16">
+        <div className="w-full max-w-md">
+          <div className="rounded-2xl border border-sand-200 bg-white p-5 shadow-soft sm:p-8">
+          <div role="tablist" aria-label="Ingresar o crear cuenta" className="mb-7 flex gap-7 border-b border-sand-300">
             {TABS.map(({ id, label }) => (
               <button
                 key={id}
@@ -118,15 +98,33 @@ export default function Login() {
           <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
             {tab === 'login' ? <LoginForm /> : <RegisterForm onDone={() => setTab('login')} />}
           </div>
+          </div>
+
+          <div className="mt-6 flex flex-col items-center gap-1 text-center">
+            {tenant && (
+              <p className="flex items-center gap-2 text-sm text-sand-600">
+                Reservas con <LogoMark className="h-5 w-5" />
+                <span className="font-display font-bold text-primary-950">Agendik</span>
+              </p>
+            )}
+            <LegalLinks />
+          </div>
         </div>
       </main>
     </div>
   )
 }
 
+/** Servicio elegido en el portal (?servicio=<id>). Solo se acepta un id simple: nunca una ruta armada desde la URL. */
+function servicioDelPortal(params) {
+  const id = params.get('servicio')
+  return id && /^[A-Za-z0-9-]{1,64}$/.test(id) ? id : null
+}
+
 function LoginForm() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
   const [olvide, setOlvide] = useState(false)
 
@@ -140,7 +138,13 @@ function LoginForm() {
 
   const onSubmit = async (values) => {
     try {
-      await login(values)
+      const session = await login(values)
+      const servicio = servicioDelPortal(params)
+      // Cliente que eligió un servicio en el portal: directo a reservarlo.
+      if (servicio && session.client && !session.staff && !session.isPlatformAdmin) {
+        navigate(`/reservar?servicio=${encodeURIComponent(servicio)}`, { replace: true })
+        return
+      }
       navigate('/dashboard', { replace: true })
     } catch (err) {
       setError('root', { message: err.message })
@@ -316,7 +320,7 @@ function RegisterForm({ onDone }) {
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(registerSchema), mode: 'onBlur' })
 
-  const onSubmit = async ({ confirmPassword, ...values }) => {
+  const onSubmit = async ({ confirmPassword, acepta, ...values }) => {
     try {
       const res = await signUp({ ...values, tenantId: tenant?.id })
       toast.success(res?.message || 'Cuenta creada.')
@@ -431,6 +435,12 @@ function RegisterForm({ onDone }) {
             {...register('confirmPassword')}
           />
         </Field>
+
+        {legalListo && (
+          <div className="pb-4">
+            <CasillaLegal id="reg-acepta" error={errors.acepta?.message} {...register('acepta')} />
+          </div>
+        )}
 
         <button type="submit" disabled={isSubmitting} className="btn-primary btn-lg w-full">
           {isSubmitting ? <Spinner className="h-4 w-4" /> : null}

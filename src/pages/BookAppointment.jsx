@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import toast from 'react-hot-toast'
 import { ArrowLeft, ArrowRight, CalendarCheck, Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -33,6 +33,16 @@ export default function BookAppointment() {
   const professionals = useAsync(() => backend.getProfessionals(), [], { initialData: [] })
   const packages = useAsync(() => backend.getPackages(client.id), [client.id], { initialData: [] })
   const plans = useAsync(() => backend.getMyPlans(), [client.id], { initialData: [] })
+
+  // Viene del portal con un servicio elegido (?servicio=<id>): se marca solo, si existe en este negocio.
+  const [params] = useSearchParams()
+  const servicioDelPortal = params.get('servicio')
+  const preseleccionado = useRef(false)
+  useEffect(() => {
+    if (preseleccionado.current || !servicioDelPortal || !services.data?.length) return
+    preseleccionado.current = true
+    if (services.data.some((s) => s.id === servicioDelPortal)) setServiceIds([servicioDelPortal])
+  }, [servicioDelPortal, services.data])
 
   const selectedServices = useMemo(
     () => (services.data || []).filter((s) => serviceIds.includes(s.id)),

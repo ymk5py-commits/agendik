@@ -22,6 +22,9 @@ texto `primary-950` sobre `accent-400` 8.8:1. `accent-600` y `primary-500` **no*
 > Un cambio a Inter se hizo por fuera de este diseño el 18-oct-2026 a las 17:50 y se revirtió.
 - **Display:** Bricolage Grotesque 700–800, tracking −0.025 a −0.035em. Títulos, logotipo, cifras grandes. Nunca cursiva.
 - **Cuerpo e interfaz:** Geist 400–600. Cifras tabulares (`.tabular`) en horas, precios y contadores.
+- **Carga:** las dos se sirven desde el propio servidor con Fontsource (`src/main.jsx`), no desde Google Fonts: así la IP
+  de cada visita no viaja a un tercero (la política de cookies lo afirma). En CSS se llaman «Bricolage Grotesque Variable»
+  y «Geist Variable».
 - Marca: `text-display` (≤ 5rem), `text-display-s`, `text-title`. Panel: escala fija de Tailwind (sin fluida).
 - Cuerpo ≥ 16 px en páginas de marca y en campos; 14 px como mínimo en el panel. Líneas de 65–75 caracteres.
 
@@ -36,11 +39,29 @@ Radios: 12 px controles, 16 px tarjetas, 24–32 px superficies grandes. Una esc
 - `Field` (label visible, error debajo, `reserve` deja renglón libre para que el error no empuje la pantalla), `Modal`, `EmptyState`, `Skeleton`.
 
 ## Movimiento
-Una curva (`--ease-out`, exponencial), tres duraciones (120 / 220 / 420 ms). Solo `transform` y `opacity`. Entrada del héroe escalonada una vez;
-secciones con `.reveal` al llegar a la pantalla. Con «reducir movimiento» todo queda visible y quieto, sin demoras.
+Una curva (`--ease-out`, exponencial), tres duraciones (120 / 220 / 420 ms). Solo `transform` y `opacity`. Sin apariciones al hacer scroll:
+el contenido está quieto y a la vista. Con «reducir movimiento» se anulan también las transiciones.
 
 ## Reglas
-- Superficies oscuras llevan la clase `surface-dark` (foco ámbar) y texto claro.
+- Si alguna vez se usa una superficie oscura, lleva la clase `surface-dark` (foco ámbar) y texto claro.
 - Sin cursivas en títulos, sin texto con degradé, sin glassmorphism decorativo, sin `transition-all`.
 - Íconos: solo Lucide, trazo uniforme. Sin emojis como íconos.
-- Contenido de ejemplo en maquetas: ilustrativo, `aria-hidden`, sin cifras que parezcan reales.
+- Nada de maquetas dibujadas: se muestran capturas reales de la demo, con la leyenda «datos de demostración».
+
+## Referencias del rubro (22-oct-2026)
+
+Se estudiaron Fresha (ficha de local, agenda del negocio, página para negocios) y Cal.com (elección de día y hora).
+Se tomó la estructura, no la apariencia: Agendik conserva su paleta y sus fuentes.
+
+- **Portal del negocio (`/n/<slug>`):** ficha de local. Nombre grande, una línea de datos reales (abierto/cerrado
+  según el horario, cantidad de servicios, WhatsApp), navegación interna fija, servicios en filas con «Reservar»,
+  equipo, horario de la semana con el día de hoy marcado, tarjeta fija para reservar (escritorio) y barra fija (celular).
+  Todo sale de `catalogo_publico`: nunca datos de ejemplo en el portal de un negocio real.
+- **Agenda del equipo:** vista Día con una columna por profesional y cada cita como bloque de su duración real; el
+  detalle se abre al costado (no en una ventana modal). En el celular, lista.
+- **Reserva:** horarios agrupados por franja (Mañana / Tarde / Noche).
+- **Página de Agendik:** título que dice qué es, capturas reales del producto (de la demo, con leyenda), solo
+  afirmaciones verificables. Nada de maquetas dibujadas, eslóganes en dos partes ni grillas de beneficios iguales.
+- **Ingreso:** barra del negocio y formulario centrado en una tarjeta; sin panel decorativo ni lista de beneficios.
+
+Las capturas viven en `src/assets/capturas/` (WebP). Si cambia la interfaz, conviene rehacerlas desde la demo.

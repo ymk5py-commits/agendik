@@ -1,11 +1,13 @@
 import { Component, Suspense, lazy } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { TenantProvider } from './context/TenantContext'
 import { DEFAULT_TENANT } from './api/supabaseClient'
 import AppLayout from './components/layout/AppLayout'
 import { PageLoader } from './components/ui'
+import AvisoCookies from './components/legal/AvisoCookies'
+import { PAGINAS_LEGALES, legalListo } from './config/legal'
 import Landing from './pages/Landing'
 
 const FLAG_RECARGA = 'agendik:chunk-recargado'
@@ -53,6 +55,7 @@ const AdminClients = lazyPagina(() => import('./pages/AdminClients'))
 const AdminProfile = lazyPagina(() => import('./pages/AdminProfile'))
 const AdminServices = lazyPagina(() => import('./pages/AdminServices'))
 const AdminProfessionals = lazyPagina(() => import('./pages/AdminProfessionals'))
+const Legal = lazyPagina(() => import('./pages/Legal'))
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -129,7 +132,12 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <BrowserRouter>
+        {/*
+          Sin transiciones, como en React Router 6. Con ellas (por defecto en la 7) un navigate() después de
+          entrar o salir pierde contra la redirección de la ruta protegida: entrar con ?servicio= terminaba en
+          /dashboard en vez de en la reserva, y salir del panel en /ingresar en vez de en /.
+        */}
+        <BrowserRouter useTransitions={false}>
           <ScrollToTop />
           <Suspense fallback={<PageLoader />}>
             <Routes>
@@ -194,9 +202,16 @@ export default function App() {
               {/* Pública: confirmar o cancelar desde email / WhatsApp */}
               <Route path="/cita/:token" element={<AppointmentAction />} />
 
+              {/* Privacidad, Términos y Cookies: existen recién cuando los datos del responsable están completos. */}
+              {legalListo &&
+                PAGINAS_LEGALES.map(({ clave, ruta }) => (
+                  <Route key={ruta} path={ruta} element={<Legal documento={clave} />} />
+                ))}
+
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
+          <AvisoCookies />
         </BrowserRouter>
 
         <Toaster

@@ -27,8 +27,9 @@ export default {
         emerald: escala('emerald', [50, 100, 200, 500, 700, 800]),
       },
       fontFamily: {
-        display: ['"Bricolage Grotesque"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Geist', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        // Las familias «Variable» las sirve Fontsource desde el propio servidor (src/main.jsx).
+        display: ['"Bricolage Grotesque Variable"', '"Bricolage Grotesque"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['"Geist Variable"', 'Geist', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
       // Escala tipográfica de las páginas de marca (landing, ingreso). El panel usa la escala fija de Tailwind.
       fontSize: {
