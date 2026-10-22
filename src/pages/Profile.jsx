@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { KeyRound, Mail, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { backend } from '../api/backend'
-import { Field, Spinner } from '../components/ui'
+import { ErrorBanner, Field, Spinner } from '../components/ui'
 import { initials } from '../utils/format'
 
 const profileSchema = z.object({
@@ -32,13 +32,13 @@ export default function Profile() {
   const { client } = useAuth()
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div>
-        <h1 className="font-display text-2xl font-extrabold text-sand-900 sm:text-3xl">Mi perfil</h1>
-        <p className="mt-1 text-sm text-sand-500">Mantené tus datos al día para que podamos avisarte de cambios.</p>
+        <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Mi perfil</h1>
+        <p className="mt-1 text-base text-sand-700">Mantené tus datos al día para que podamos avisarte de cambios.</p>
       </div>
 
-      <section className="card flex flex-wrap items-center gap-4">
+      <section className="flex flex-wrap items-center gap-4">
         <span
           aria-hidden="true"
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary-800 font-display text-xl font-extrabold text-white"
@@ -46,9 +46,9 @@ export default function Profile() {
           {initials(client?.name)}
         </span>
         <div className="min-w-0">
-          <p className="font-display text-lg font-bold text-sand-900">{client?.name}</p>
-          <p className="flex items-center gap-1.5 text-sm text-sand-500">
-            <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+          <p className="font-display text-xl font-bold text-primary-950">{client?.name}</p>
+          <p className="flex items-center gap-2 text-base text-sand-700">
+            <Mail className="h-4 w-4" aria-hidden="true" />
             <span className="truncate">{client?.email}</span>
           </p>
         </div>
@@ -95,21 +95,17 @@ function ProfileForm() {
 
   return (
     <section className="card">
-      <h2 className="font-display text-lg font-bold text-sand-900">Datos personales</h2>
+      <h2 className="font-display text-xl font-bold">Datos personales</h2>
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-4">
-        {errors.root && (
-          <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-800">
-            {errors.root.message}
-          </p>
-        )}
+        {errors.root && <ErrorBanner>{errors.root.message}</ErrorBanner>}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nombre completo" htmlFor="p-name" error={errors.name?.message} required>
+        <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+          <Field reserve label="Nombre completo" htmlFor="p-name" error={errors.name?.message} required>
             <input id="p-name" type="text" autoComplete="name" className="input" {...register('name')} />
           </Field>
 
-          <Field label="Teléfono" htmlFor="p-phone" error={errors.phone?.message} required>
+          <Field reserve label="Teléfono" htmlFor="p-phone" error={errors.phone?.message} required>
             <input
               id="p-phone"
               type="tel"
@@ -121,11 +117,11 @@ function ProfileForm() {
             />
           </Field>
 
-          <Field label="Fecha de nacimiento" htmlFor="p-birth" error={errors.birthDate?.message}>
+          <Field reserve label="Fecha de nacimiento" htmlFor="p-birth" error={errors.birthDate?.message}>
             <input id="p-birth" type="date" className="input" {...register('birthDate')} />
           </Field>
 
-          <Field label="Género" htmlFor="p-gender" error={errors.gender?.message}>
+          <Field reserve label="Género" htmlFor="p-gender" error={errors.gender?.message}>
             <select id="p-gender" className="input" {...register('gender')}>
               <option value="">Prefiero no decirlo</option>
               <option value="female">Femenino</option>
@@ -134,11 +130,11 @@ function ProfileForm() {
             </select>
           </Field>
 
-          <Field label="Ocupación" htmlFor="p-occupation" error={errors.occupation?.message}>
+          <Field reserve label="Ocupación" htmlFor="p-occupation" error={errors.occupation?.message}>
             <input id="p-occupation" type="text" className="input" {...register('occupation')} />
           </Field>
 
-          <Field label="Dirección" htmlFor="p-address" error={errors.address?.message}>
+          <Field reserve label="Dirección" htmlFor="p-address" error={errors.address?.message}>
             <input id="p-address" type="text" autoComplete="street-address" className="input" {...register('address')} />
           </Field>
         </div>
@@ -189,11 +185,11 @@ function PasswordForm() {
     <section className="card">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-1.5 font-display text-lg font-bold text-sand-900">
-            <ShieldCheck className="h-4 w-4 text-primary-600" aria-hidden="true" />
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold">
+            <ShieldCheck className="h-5 w-5 text-primary-600" aria-hidden="true" />
             Seguridad
           </h2>
-          <p className="mt-0.5 text-sm text-sand-500">Cambiá tu contraseña cuando quieras.</p>
+          <p className="mt-0.5 text-base text-sand-700">Cambiá tu contraseña cuando quieras.</p>
         </div>
 
         <button
@@ -212,14 +208,11 @@ function PasswordForm() {
 
       {open && (
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-4 animate-slide-up">
-          {errors.root && (
-            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-800">
-              {errors.root.message}
-            </p>
-          )}
+          {errors.root && <ErrorBanner>{errors.root.message}</ErrorBanner>}
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
             <Field
+              reserve
               label="Nueva contraseña"
               htmlFor="p-password"
               error={errors.password?.message}
@@ -235,7 +228,7 @@ function PasswordForm() {
               />
             </Field>
 
-            <Field label="Repetí la contraseña" htmlFor="p-confirm" error={errors.confirmPassword?.message} required>
+            <Field reserve label="Repetí la contraseña" htmlFor="p-confirm" error={errors.confirmPassword?.message} required>
               <input
                 id="p-confirm"
                 type="password"

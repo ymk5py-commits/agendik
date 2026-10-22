@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { backend } from '../api/backend'
-import { Field, PageLoader, Spinner } from '../components/ui'
+import { ErrorBanner, Field, PageLoader, Spinner } from '../components/ui'
 import { Logo } from '../components/Logo'
 
 /**
@@ -54,14 +54,12 @@ export default function ResetPassword() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-sand-50 px-6 text-center">
         <Logo subtitle="Portal de citas" />
-        <h1 className="mt-4 font-display text-2xl font-bold text-sand-900">
-          Este link ya no sirve
-        </h1>
-        <p className="max-w-sm text-sm text-sand-500">
+        <h1 className="mt-4 font-display text-3xl font-extrabold">Este link ya no sirve</h1>
+        <p className="max-w-sm text-base text-sand-700">
           Los links para cambiar la contraseña vencen al rato y se usan una sola vez. Pedí
           uno nuevo desde la pantalla de ingreso.
         </p>
-        <Link to="/ingresar" className="btn-primary mt-2">
+        <Link to="/ingresar" className="btn-primary btn-lg mt-2">
           Ir a ingresar
         </Link>
       </div>
@@ -74,20 +72,16 @@ export default function ResetPassword() {
         <div className="mb-6 flex justify-center">
           <Logo subtitle="Portal de citas" />
         </div>
-        <div className="card">
-          <h1 className="font-display text-2xl font-bold text-sand-900">Elegí tu contraseña</h1>
-          <p className="mt-1 text-sm text-sand-500">
+        <div>
+          <h1 className="font-display text-[1.875rem] font-extrabold leading-tight">Elegí tu contraseña</h1>
+          <p className="mt-2 text-base text-sand-700">
             Con esta contraseña vas a entrar de ahora en más.
           </p>
 
-          <form onSubmit={guardar} className="mt-6 space-y-4" noValidate>
-            {error && (
-              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
-              </p>
-            )}
+          <form onSubmit={guardar} className="mt-8 space-y-2" noValidate>
+            {error && <ErrorBanner>{error}</ErrorBanner>}
 
-            <Field label="Contraseña nueva" htmlFor="rp-pass" required>
+            <Field reserve label="Contraseña nueva" htmlFor="rp-pass" required>
               <input
                 id="rp-pass"
                 type="password"
@@ -99,7 +93,7 @@ export default function ResetPassword() {
               />
             </Field>
 
-            <Field label="Repetí la contraseña" htmlFor="rp-pass2" required>
+            <Field reserve label="Repetí la contraseña" htmlFor="rp-pass2" required>
               <input
                 id="rp-pass2"
                 type="password"
@@ -111,7 +105,7 @@ export default function ResetPassword() {
               />
             </Field>
 
-            <button type="submit" disabled={guardando} className="btn-primary w-full">
+            <button type="submit" disabled={guardando} className="btn-primary btn-lg mt-3 w-full">
               {guardando ? <Spinner /> : 'Guardar contraseña'}
             </button>
           </form>

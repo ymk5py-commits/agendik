@@ -106,73 +106,69 @@ export default function AdminAgenda() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-sand-900 sm:text-3xl">Agenda del negocio</h1>
-          <p className="mt-1 text-sm text-sand-600">
-            Todas las citas de todos los clientes. Confirmá o cancelá desde acá.
-          </p>
+          <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Agenda</h1>
+          <p className="mt-1 text-base text-sand-700">Todas las citas del negocio. Confirmá, mové o cancelá desde acá.</p>
         </div>
+        <button type="button" onClick={() => setNuevaCita(true)} className="btn-primary btn-lg">
+          <Plus className="h-5 w-5" aria-hidden="true" />
+          Nueva cita
+        </button>
+      </header>
 
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-sand-300">
+        <div role="tablist" aria-label="Período" className="flex gap-7 overflow-x-auto">
           {RANGOS.map((r) => (
             <button
               key={r.id}
               type="button"
+              role="tab"
+              aria-selected={rango === r.id}
               onClick={() => setRango(r.id)}
-              aria-pressed={rango === r.id}
-              className={`cursor-pointer rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors ${
+              className={`-mb-px min-h-[48px] min-w-[44px] shrink-0 cursor-pointer border-b-2 px-0.5 text-base font-semibold transition-colors duration-150 ${
                 rango === r.id
-                  ? 'bg-primary-800 text-white'
-                  : 'border border-sand-200 bg-white text-sand-700 hover:border-primary-300'
+                  ? 'border-primary-800 text-primary-950'
+                  : 'border-transparent text-sand-700 hover:text-sand-900'
               }`}
             >
               {r.label}
             </button>
           ))}
-          <button type="button" onClick={() => setNuevaCita(true)} className="btn-accent ml-1">
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Nueva cita
-          </button>
         </div>
-      </header>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Resumen">
-        <Kpi label="Citas en el período" value={resumen.total} />
-        <Kpi label="Por confirmar" value={resumen.porConfirmar} tone="accent" />
-        <Kpi label="Confirmadas" value={resumen.confirmadas} tone="ok" />
-        <Kpi label="A facturar" value={formatGs(resumen.facturable)} small />
-      </section>
-
-      {profesionales.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-sand-600">Profesional:</span>
-          <button
-            type="button"
-            onClick={() => setProfesional('todos')}
-            aria-pressed={profesional === 'todos'}
-            className={`chip cursor-pointer transition-colors ${
-              profesional === 'todos' ? 'bg-primary-800 text-white' : 'bg-sand-100 text-sand-700 hover:bg-sand-200'
-            }`}
-          >
-            Todos
-          </button>
-          {profesionales.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setProfesional(p.id)}
-              aria-pressed={profesional === p.id}
-              className={`chip cursor-pointer transition-colors ${
-                profesional === p.id ? 'bg-primary-800 text-white' : 'bg-sand-100 text-sand-700 hover:bg-sand-200'
-              }`}
+        {profesionales.length > 1 && (
+          <div className="flex items-center gap-2 pb-2">
+            <label htmlFor="filtro-profesional" className="text-sm font-medium text-sand-700">
+              Profesional
+            </label>
+            <select
+              id="filtro-profesional"
+              value={profesional}
+              onChange={(e) => setProfesional(e.target.value)}
+              className="input w-auto min-w-[10rem]"
             >
-              {p.name}
-            </button>
-          ))}
-        </div>
-      )}
+              <option value="todos">Todos</option>
+              {profesionales.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <dl
+        aria-label="Resumen del período"
+        className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-sand-200 ring-1 ring-sand-200 sm:grid-cols-4"
+      >
+        <Dato label="Citas en el período" value={resumen.total} />
+        <Dato label="Por confirmar" value={resumen.porConfirmar} tone="accent" />
+        <Dato label="Confirmadas" value={resumen.confirmadas} tone="ok" />
+        <Dato label="A facturar" value={formatGs(resumen.facturable)} small />
+      </dl>
 
       {agenda.loading && (
         <div className="space-y-3" aria-busy="true">
@@ -198,87 +194,93 @@ export default function AdminAgenda() {
         />
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         {porDia.map(([dia, delDia]) => (
-          <section key={dia}>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-sand-500">
-              {format(new Date(`${dia}T12:00:00`), "EEEE d 'de' MMMM", { locale: es })}
-              <span className="ml-2 font-normal normal-case tracking-normal text-sand-400">
+          <section key={dia} aria-label={format(new Date(`${dia}T12:00:00`), "EEEE d 'de' MMMM", { locale: es })}>
+            <h2 className="flex flex-wrap items-baseline gap-x-3 font-display text-xl font-bold">
+              <span className="first-letter:uppercase">
+                {format(new Date(`${dia}T12:00:00`), "EEEE d 'de' MMMM", { locale: es })}
+              </span>
+              <span className="text-base font-normal text-sand-700">
                 {delDia.length} {delDia.length === 1 ? 'cita' : 'citas'}
               </span>
             </h2>
 
-            <ul className="space-y-2.5">
+            <ul className="mt-3 divide-y divide-sand-200 overflow-hidden rounded-2xl border border-sand-200 bg-white">
               {delDia.map((cita) => {
                 const meta = statusMeta(cita.status)
                 const acciones = accionesPara(cita.status)
                 return (
-                  <li key={cita.id} className="card p-4 sm:p-4">
-                    <div className="flex flex-wrap items-start gap-4">
-                      <div className="flex min-w-[4.5rem] flex-col">
-                        <span className="tabular text-lg font-bold text-sand-900">{cita.startTime}</span>
-                        <span className="tabular text-xs text-sand-500">{cita.endTime}</span>
-                      </div>
+                  <li key={cita.id} className="flex flex-wrap items-start gap-x-5 gap-y-3 p-4 sm:p-5">
+                    <div className="w-20 shrink-0">
+                      <p className="tabular font-display text-2xl font-extrabold leading-none text-primary-950">
+                        {cita.startTime}
+                      </p>
+                      <p className="tabular mt-1 text-sm text-sand-700">a {cita.endTime}</p>
+                    </div>
 
-                      <div className="min-w-[12rem] flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-sand-900">{cita.clientName}</span>
-                          <span className={`chip ${meta.chip}`}>{meta.label}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-sand-600">{cita.servicesLabel}</p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-sand-500">
-                          <span className="inline-flex items-center gap-1">
-                            <User className="h-3.5 w-3.5" aria-hidden="true" />
-                            {cita.professionalName}
-                          </span>
-                          {cita.clientPhone && (
-                            <a
-                              href={`https://wa.me/${cita.clientPhone.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex cursor-pointer items-center gap-1 hover:text-primary-700 hover:underline"
-                            >
-                              <Phone className="h-3.5 w-3.5" aria-hidden="true" />
-                              {cita.clientPhone}
-                            </a>
-                          )}
-                          {cita.totalPrice > 0 && (
-                            <span className="tabular font-medium text-sand-600">{formatGs(cita.totalPrice)}</span>
-                          )}
-                        </div>
+                    <div className="min-w-[12rem] flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <span className="text-lg font-semibold text-sand-900">{cita.clientName}</span>
+                        <span className={`chip ${meta.chip}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
+                          {meta.label}
+                        </span>
                       </div>
+                      <p className="mt-1 text-base text-sand-800">{cita.servicesLabel}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-sand-700">
+                        <span className="inline-flex items-center gap-1.5">
+                          <User className="h-4 w-4" aria-hidden="true" />
+                          {cita.professionalName}
+                        </span>
+                        {cita.clientPhone && (
+                          <a
+                            href={`https://wa.me/${cita.clientPhone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-[28px] cursor-pointer items-center gap-1.5 text-primary-800 underline decoration-primary-300 underline-offset-4 transition-colors hover:decoration-primary-700"
+                          >
+                            <Phone className="h-4 w-4" aria-hidden="true" />
+                            {cita.clientPhone}
+                          </a>
+                        )}
+                        {cita.totalPrice > 0 && (
+                          <span className="tabular font-medium text-sand-900">{formatGs(cita.totalPrice)}</span>
+                        )}
+                      </div>
+                    </div>
 
-                      {acciones.length > 0 && (
-                        <div className="flex gap-2">
+                    {acciones.length > 0 && (
+                      <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                        <button
+                          type="button"
+                          disabled={guardando === cita.id}
+                          onClick={() => setReprogramando(cita)}
+                          aria-label={`Mover la cita de ${cita.clientName}`}
+                          className="btn-outline"
+                        >
+                          <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                          Mover
+                        </button>
+                        {acciones.map((a) => (
                           <button
+                            key={a.to}
                             type="button"
                             disabled={guardando === cita.id}
-                            onClick={() => setReprogramando(cita)}
-                            aria-label={`Reprogramar la cita de ${cita.clientName}`}
-                            className="btn border border-sand-200 bg-white px-3 py-2 text-sand-700 hover:border-primary-300 hover:text-primary-800"
+                            onClick={() => cambiarEstado(cita, a.to)}
+                            aria-label={`${a.label}: cita de ${cita.clientName}`}
+                            className={
+                              a.tone === 'ok'
+                                ? 'btn border border-emerald-500 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                : 'btn border border-rose-300 bg-white text-rose-700 hover:bg-rose-50'
+                            }
                           >
-                            <CalendarClock className="h-4 w-4" aria-hidden="true" />
-                            <span className="hidden lg:inline">Mover</span>
+                            <a.icon className="h-4 w-4" aria-hidden="true" />
+                            {a.label}
                           </button>
-                          {acciones.map((a) => (
-                            <button
-                              key={a.to}
-                              type="button"
-                              disabled={guardando === cita.id}
-                              onClick={() => cambiarEstado(cita, a.to)}
-                              className={
-                                a.tone === 'ok'
-                                  ? 'btn border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800 hover:bg-emerald-100'
-                                  : 'btn border border-rose-200 bg-white px-3 py-2 text-rose-700 hover:bg-rose-50'
-                              }
-                            >
-                              <a.icon className="h-4 w-4" aria-hidden="true" />
-                              <span className="hidden sm:inline">{a.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </li>
                 )
               })}
@@ -303,13 +305,13 @@ export default function AdminAgenda() {
   )
 }
 
-function Kpi({ label, value, tone, small }) {
-  const color =
-    tone === 'accent' ? 'text-accent-700' : tone === 'ok' ? 'text-emerald-700' : 'text-sand-900'
+/** Una celda de la franja de resumen (todas comparten un solo contenedor). */
+function Dato({ label, value, tone, small }) {
+  const color = tone === 'accent' ? 'text-accent-700' : tone === 'ok' ? 'text-emerald-700' : 'text-primary-950'
   return (
-    <div className="card p-4">
-      <p className="text-xs font-medium text-sand-500">{label}</p>
-      <p className={`tabular mt-1 font-bold ${small ? 'text-lg' : 'text-2xl'} ${color}`}>{value}</p>
+    <div className="bg-white p-4 sm:p-5">
+      <dt className="text-sm text-sand-700">{label}</dt>
+      <dd className={`tabular mt-1 font-display font-extrabold ${small ? 'text-xl' : 'text-3xl'} ${color}`}>{value}</dd>
     </div>
   )
 }

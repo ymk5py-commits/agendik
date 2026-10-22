@@ -39,7 +39,7 @@ export function Logo({ subtitle, tone = 'dark', className = '' }) {
           Agendik
         </span>
         {subtitle && (
-          <span className={`block text-xs font-medium ${light ? 'text-primary-200' : 'text-sand-500'}`}>
+          <span className={`block text-[0.8125rem] font-medium ${light ? 'text-primary-200' : 'text-sand-500'}`}>
             {subtitle}
           </span>
         )}

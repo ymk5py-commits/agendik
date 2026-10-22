@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
-import { ArrowLeft, CalendarCheck, Eye, EyeOff, Layers, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Check, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTenant } from '../context/TenantContext'
-import { Field, Spinner } from '../components/ui'
-import { Logo } from '../components/Logo'
+import { ErrorBanner, Field, Spinner } from '../components/ui'
+import { Logo, LogoMark } from '../components/Logo'
+import { BusinessMark } from '../components/BusinessMark'
+import { AgendaBackdrop } from '../components/landing/Fragments'
 import { backend, isDemoMode } from '../api/backend'
 import { DEMO_CREDENTIALS } from '../data/demoData'
 
@@ -31,77 +33,81 @@ const registerSchema = z
   })
 
 const HIGHLIGHTS = [
-  { icon: CalendarCheck, text: 'Reservá en cuatro pasos' },
-  { icon: Layers, text: 'Seguí las sesiones de tus paquetes' },
-  { icon: ShieldCheck, text: 'Confirmá o cancelá cuando quieras' },
+  'Reservá en cuatro pasos, a cualquier hora',
+  'Seguí las sesiones de tus paquetes',
+  'Confirmá o cancelá cuando quieras',
+]
+
+const TABS = [
+  { id: 'login', label: 'Ingresar' },
+  { id: 'register', label: 'Crear cuenta' },
 ]
 
 export default function Login() {
-  const [tab, setTab] = useState('login')
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState(params.has('registro') ? 'register' : 'login')
+  const { tenant, slug } = useTenant()
+  const inicio = slug ? `/n/${slug}` : '/'
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-2">
-      {/* Panel de marca (solo desktop) */}
-      <aside className="relative hidden overflow-hidden bg-primary-950 p-12 lg:flex lg:flex-col lg:justify-between">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 top-1/4 h-96 w-96 rounded-full bg-primary-800/40 blur-3xl"
-        />
-        <Link to="/" className="relative w-fit rounded-lg">
-          <Logo subtitle="Portal de citas" tone="light" />
+    <div className="min-h-dvh lg:grid lg:grid-cols-12">
+      {/* Panel de marca (solo desktop): el negocio al frente, Agendik de firma */}
+      <aside className="surface-dark relative hidden overflow-hidden bg-primary-950 p-12 lg:col-span-5 lg:flex lg:flex-col lg:justify-between xl:p-16">
+        <AgendaBackdrop />
+        <Link to={inicio} className="relative flex w-fit items-center gap-3 rounded-lg">
+          {tenant ? (
+            <>
+              <BusinessMark name={tenant.businessName} tone="light" />
+              <span className="font-display text-lg font-bold tracking-tight text-white">{tenant.businessName}</span>
+            </>
+          ) : (
+            <Logo subtitle="Portal de citas" tone="light" />
+          )}
         </Link>
 
         <div className="relative">
-          <h2 className="max-w-md font-display text-4xl font-extrabold leading-[1.1] text-white">
-            Tu próxima cita, a un par de toques
-          </h2>
-          <ul className="mt-8 space-y-4">
-            {HIGHLIGHTS.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3 text-primary-100">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-900 text-accent-400">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <span className="text-sm">{text}</span>
+          <h2 className="max-w-sm text-title font-extrabold text-white">Tu próxima cita, a un par de toques</h2>
+          <ul className="mt-8 space-y-3.5">
+            {HIGHLIGHTS.map((text) => (
+              <li key={text} className="flex items-center gap-3 text-base text-primary-100">
+                <Check className="h-5 w-5 shrink-0 text-accent-400" aria-hidden="true" />
+                {text}
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="relative text-xs text-primary-300">Horarios en zona América/Asunción</p>
+        <p className="relative flex items-center gap-2 text-sm text-primary-200">
+          Reservas con <LogoMark tone="light" className="h-5 w-5" />
+          <span className="font-display font-bold text-white">Agendik</span>
+        </p>
       </aside>
 
-      {/* Formularios */}
-      <main className="flex min-h-dvh flex-col justify-center bg-sand-50 px-5 py-10 sm:px-8">
+      {/* Formularios, directo sobre el papel */}
+      <main className="flex min-h-dvh flex-col justify-center px-5 py-10 sm:px-10 lg:col-span-7 lg:px-16">
         <div className="mx-auto w-full max-w-md">
           <Link
-            to="/"
-            className="mb-8 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-sand-600 transition-colors hover:text-primary-800 lg:hidden"
+            to={inicio}
+            className="mb-8 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg text-sm font-medium text-sand-700 transition-colors hover:text-primary-800 lg:hidden"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Volver al inicio
+            {tenant ? `Volver a ${tenant.businessName}` : 'Volver al inicio'}
           </Link>
 
-          <div className="mb-6 lg:hidden">
-            <Logo subtitle="Portal de citas" />
-          </div>
-
-          <div
-            role="tablist"
-            aria-label="Ingresar o crear cuenta"
-            className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-sand-200/60 p-1"
-          >
-            {[
-              { id: 'login', label: 'Ingresar' },
-              { id: 'register', label: 'Crear cuenta' },
-            ].map(({ id, label }) => (
+          <div role="tablist" aria-label="Ingresar o crear cuenta" className="mb-8 flex gap-7 border-b border-sand-300">
+            {TABS.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
                 role="tab"
+                id={`tab-${id}`}
                 aria-selected={tab === id}
+                aria-controls={`panel-${id}`}
                 onClick={() => setTab(id)}
-                className={`min-h-[44px] cursor-pointer rounded-lg px-4 text-sm font-semibold transition-all duration-200 ${
-                  tab === id ? 'bg-white text-primary-800 shadow-soft' : 'text-sand-600 hover:text-sand-900'
+                className={`-mb-px min-h-[48px] cursor-pointer border-b-2 px-0.5 text-base font-semibold transition-colors duration-150 ${
+                  tab === id
+                    ? 'border-primary-800 text-primary-950'
+                    : 'border-transparent text-sand-600 hover:text-sand-900'
                 }`}
               >
                 {label}
@@ -109,7 +115,9 @@ export default function Login() {
             ))}
           </div>
 
-          {tab === 'login' ? <LoginForm /> : <RegisterForm onDone={() => setTab('login')} />}
+          <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+            {tab === 'login' ? <LoginForm /> : <RegisterForm onDone={() => setTab('login')} />}
+          </div>
         </div>
       </main>
     </div>
@@ -133,7 +141,6 @@ function LoginForm() {
   const onSubmit = async (values) => {
     try {
       await login(values)
-      toast.success('¡Hola de nuevo!')
       navigate('/dashboard', { replace: true })
     } catch (err) {
       setError('root', { message: err.message })
@@ -148,18 +155,14 @@ function LoginForm() {
   if (olvide) return <OlvideForm onVolver={() => setOlvide(false)} />
 
   return (
-    <div className="card">
-      <h1 className="font-display text-2xl font-bold text-sand-900">Ingresá a tu cuenta</h1>
-      <p className="mt-1 text-sm text-sand-500">Gestioná tus citas y tus paquetes.</p>
+    <div>
+      <h1 className="font-display text-[1.875rem] font-extrabold leading-tight text-primary-950">Ingresá a tu cuenta</h1>
+      <p className="mt-2 text-base text-sand-600">Gestioná tus citas y tus paquetes.</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-4">
-        {errors.root && (
-          <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-800">
-            {errors.root.message}
-          </p>
-        )}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 space-y-2">
+        {errors.root && <ErrorBanner>{errors.root.message}</ErrorBanner>}
 
-        <Field label="Email" htmlFor="login-email" error={errors.email?.message} required>
+        <Field reserve label="Email" htmlFor="login-email" error={errors.email?.message} required>
           <input
             id="login-email"
             type="email"
@@ -172,7 +175,7 @@ function LoginForm() {
           />
         </Field>
 
-        <Field label="Contraseña" htmlFor="login-password" error={errors.password?.message} required>
+        <Field reserve label="Contraseña" htmlFor="login-password" error={errors.password?.message} required>
           <div className="relative">
             <input
               id="login-password"
@@ -187,14 +190,14 @@ function LoginForm() {
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-sand-400 transition-colors hover:text-sand-700"
+              className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-sand-600 transition-colors hover:text-primary-800"
             >
               {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
             </button>
           </div>
         </Field>
 
-        <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3">
+        <button type="submit" disabled={isSubmitting} className="btn-primary btn-lg w-full">
           {isSubmitting ? <Spinner className="h-4 w-4" /> : null}
           {isSubmitting ? 'Ingresando…' : 'Ingresar'}
         </button>
@@ -202,18 +205,18 @@ function LoginForm() {
         <button
           type="button"
           onClick={() => setOlvide(true)}
-          className="w-full cursor-pointer text-center text-sm text-sand-500 underline-offset-2 hover:text-sand-800 hover:underline"
+          className="flex min-h-[44px] w-full cursor-pointer items-center justify-center text-sm font-medium text-sand-700 underline-offset-4 transition-colors hover:text-primary-800 hover:underline"
         >
           Olvidé mi contraseña
         </button>
       </form>
 
       {isDemoMode && (
-        <div className="mt-5 rounded-xl border border-accent-200 bg-accent-50 p-3.5">
-          <p className="text-xs text-accent-900">
+        <div className="mt-6 rounded-xl border border-accent-200 bg-accent-50 p-4">
+          <p className="text-sm text-accent-900">
             <span className="font-semibold">Modo demo.</span> Probá con la cuenta de ejemplo.
           </p>
-          <button type="button" onClick={fillDemo} className="btn-outline mt-2.5 w-full py-2 text-xs">
+          <button type="button" onClick={fillDemo} className="btn-outline mt-3 w-full">
             Completar datos de la demo
           </button>
         </div>
@@ -253,13 +256,13 @@ function OlvideForm({ onVolver }) {
 
   if (enviado) {
     return (
-      <div className="card">
-        <h1 className="font-display text-2xl font-bold text-sand-900">Revisá tu correo</h1>
-        <p className="mt-2 text-sm text-sand-500">
+      <div>
+        <h1 className="font-display text-[1.875rem] font-extrabold leading-tight text-primary-950">Revisá tu correo</h1>
+        <p className="mt-2 text-base text-sand-600">
           Si <strong>{email.trim()}</strong> tiene una cuenta, le llega un link para poner
           una contraseña nueva. Puede tardar un par de minutos, y a veces cae en spam.
         </p>
-        <button type="button" onClick={onVolver} className="btn-outline mt-6 w-full py-3">
+        <button type="button" onClick={onVolver} className="btn-outline btn-lg mt-8 w-full">
           Volver a ingresar
         </button>
       </div>
@@ -267,17 +270,13 @@ function OlvideForm({ onVolver }) {
   }
 
   return (
-    <div className="card">
-      <h1 className="font-display text-2xl font-bold text-sand-900">Recuperar contraseña</h1>
-      <p className="mt-1 text-sm text-sand-500">Te mandamos un link para elegir una nueva.</p>
+    <div>
+      <h1 className="font-display text-[1.875rem] font-extrabold leading-tight text-primary-950">Recuperar contraseña</h1>
+      <p className="mt-2 text-base text-sand-600">Te mandamos un link para elegir una nueva.</p>
 
-      <form onSubmit={pedir} noValidate className="mt-6 space-y-4">
-        {error && (
-          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-        <Field label="Tu email" htmlFor="olv-email" required>
+      <form onSubmit={pedir} noValidate className="mt-8 space-y-2">
+        {error && <ErrorBanner>{error}</ErrorBanner>}
+        <Field reserve label="Tu email" htmlFor="olv-email" required>
           <input
             id="olv-email"
             type="email"
@@ -288,14 +287,14 @@ function OlvideForm({ onVolver }) {
             autoComplete="email"
           />
         </Field>
-        <button type="submit" disabled={enviando} className="btn-primary w-full py-3">
+        <button type="submit" disabled={enviando} className="btn-primary btn-lg w-full">
           {enviando ? <Spinner className="h-4 w-4" /> : null}
           {enviando ? 'Enviando…' : 'Enviarme el link'}
         </button>
         <button
           type="button"
           onClick={onVolver}
-          className="w-full cursor-pointer text-center text-sm text-sand-500 hover:text-sand-800"
+          className="flex min-h-[44px] w-full cursor-pointer items-center justify-center text-sm font-medium text-sand-700 transition-colors hover:text-primary-800"
         >
           Volver
         </button>
@@ -331,9 +330,9 @@ function RegisterForm({ onDone }) {
   // qué negocio asociarla. Pasa si alguien entra directo a /ingresar.
   if (!cargandoNegocio && !tenant) {
     return (
-      <div className="card">
-        <h1 className="font-display text-2xl font-bold text-sand-900">Creá tu cuenta</h1>
-        <p className="mt-2 text-sm text-sand-500">
+      <div>
+        <h1 className="font-display text-[1.875rem] font-extrabold leading-tight text-primary-950">Creá tu cuenta</h1>
+        <p className="mt-2 text-base text-sand-600">
           Para registrarte entrá con el link que te pasó el negocio, que se ve así:{' '}
           <span className="whitespace-nowrap font-medium text-sand-700">/n/nombre-del-negocio</span>.
         </p>
@@ -342,18 +341,14 @@ function RegisterForm({ onDone }) {
   }
 
   return (
-    <div className="card">
-      <h1 className="font-display text-2xl font-bold text-sand-900">Creá tu cuenta</h1>
-      <p className="mt-1 text-sm text-sand-500">Con tu email alcanza para empezar a reservar.</p>
+    <div>
+      <h1 className="font-display text-[1.875rem] font-extrabold leading-tight text-primary-950">Creá tu cuenta</h1>
+      <p className="mt-2 text-base text-sand-600">Con tu email alcanza para empezar a reservar.</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-6 space-y-4">
-        {errors.root && (
-          <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-800">
-            {errors.root.message}
-          </p>
-        )}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-8 space-y-2">
+        {errors.root && <ErrorBanner>{errors.root.message}</ErrorBanner>}
 
-        <Field label="Nombre completo" htmlFor="reg-name" error={errors.name?.message} required>
+        <Field reserve label="Nombre completo" htmlFor="reg-name" error={errors.name?.message} required>
           <input
             id="reg-name"
             type="text"
@@ -365,7 +360,7 @@ function RegisterForm({ onDone }) {
           />
         </Field>
 
-        <Field label="Email" htmlFor="reg-email" error={errors.email?.message} required>
+        <Field reserve label="Email" htmlFor="reg-email" error={errors.email?.message} required>
           <input
             id="reg-email"
             type="email"
@@ -418,14 +413,14 @@ function RegisterForm({ onDone }) {
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-sand-400 transition-colors hover:text-sand-700"
+              className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-sand-600 transition-colors hover:text-primary-800"
             >
               {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
             </button>
           </div>
         </Field>
 
-        <Field label="Repetí la contraseña" htmlFor="reg-confirm" error={errors.confirmPassword?.message} required>
+        <Field reserve label="Repetí la contraseña" htmlFor="reg-confirm" error={errors.confirmPassword?.message} required>
           <input
             id="reg-confirm"
             type="password"
@@ -437,7 +432,7 @@ function RegisterForm({ onDone }) {
           />
         </Field>
 
-        <button type="submit" disabled={isSubmitting} className="btn-primary w-full py-3">
+        <button type="submit" disabled={isSubmitting} className="btn-primary btn-lg w-full">
           {isSubmitting ? <Spinner className="h-4 w-4" /> : null}
           {isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}
         </button>

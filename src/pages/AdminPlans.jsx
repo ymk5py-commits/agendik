@@ -37,13 +37,13 @@ export default function AdminPlans() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-sand-900">Planes</h1>
-          <p className="mt-0.5 text-sm text-sand-500">
+          <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Planes</h1>
+          <p className="mt-0.5 text-sm text-sand-700">
             Cuotas que se renuevan cada mes. El contador vuelve a empezar en la fecha en que
             cada cliente se suscribió.
           </p>
         </div>
-        <button type="button" onClick={abrirNuevo} className="btn-accent">
+        <button type="button" onClick={abrirNuevo} className="btn-primary btn-lg">
           <Plus className="h-4 w-4" aria-hidden="true" />
           Nuevo plan
         </button>
@@ -66,11 +66,11 @@ export default function AdminPlans() {
       )}
 
       {lista.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-sand-200 overflow-hidden rounded-2xl border border-sand-200 bg-white">
           {lista.map((p) => {
             const cubre = nombresDe(p.serviceIds)
             return (
-              <li key={p.id} className="card flex flex-wrap items-center gap-4 p-4">
+              <li key={p.id} className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-sand-900">
                     {p.name}
@@ -78,19 +78,19 @@ export default function AdminPlans() {
                       <span className="chip ml-2 bg-sand-100 text-sand-600">Inactivo</span>
                     )}
                   </p>
-                  <p className="truncate text-sm text-sand-500">
+                  <p className="truncate text-sm text-sand-700">
                     {cubre.length ? cubre.join(' · ') : 'Sin servicios asignados'}
                   </p>
                 </div>
 
                 <div className="text-center">
                   <p className="tabular text-lg font-bold text-primary-700">{p.usesPerPeriod}</p>
-                  <p className="text-xs text-sand-500">usos/mes</p>
+                  <p className="text-sm text-sand-700">usos/mes</p>
                 </div>
 
                 <div className="text-right">
                   <p className="tabular font-semibold text-sand-900">{formatGs(p.price)}</p>
-                  <p className="text-xs text-sand-500">por mes</p>
+                  <p className="text-sm text-sand-700">por mes</p>
                 </div>
 
                 <div className="flex gap-1">
@@ -116,7 +116,7 @@ export default function AdminPlans() {
                       setAbierto(true)
                     }}
                     aria-label={`Editar ${p.name}`}
-                    className="btn-ghost px-2.5"
+                    className="btn-ghost min-w-[44px] px-3"
                   >
                     <Pencil className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -256,7 +256,7 @@ function PlanModal({ open, onClose, onSaved, tenantId, plan, servicios }) {
         >
           <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-sand-200 p-2">
             {servicios.length === 0 && (
-              <p className="px-2 py-3 text-sm text-sand-500">Primero cargá servicios.</p>
+              <p className="px-2 py-3 text-sm text-sand-700">Primero cargá servicios.</p>
             )}
             {servicios.map((s) => (
               <label
@@ -270,7 +270,7 @@ function PlanModal({ open, onClose, onSaved, tenantId, plan, servicios }) {
                   className="h-4 w-4"
                 />
                 <span className="text-sm text-sand-800">{s.name}</span>
-                <span className="ml-auto text-xs text-sand-400">{s.durationMin} min</span>
+                <span className="ml-auto text-sm text-sand-600">{s.durationMin} min</span>
               </label>
             ))}
           </div>

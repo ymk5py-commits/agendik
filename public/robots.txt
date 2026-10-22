@@ -1,0 +1,16 @@
+# Agendik: las páginas públicas de cada negocio (/n/<negocio>) se pueden indexar; el resto es privado.
+User-agent: *
+Allow: /n/
+Disallow: /dashboard
+Disallow: /reservar
+Disallow: /mis-citas
+Disallow: /perfil
+Disallow: /agenda
+Disallow: /clientes
+Disallow: /servicios
+Disallow: /profesionales
+Disallow: /planes
+Disallow: /mi-cuenta
+Disallow: /negocios
+Disallow: /recuperar
+Disallow: /cita/

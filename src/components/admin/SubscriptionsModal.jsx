@@ -74,7 +74,7 @@ export default function SubscriptionsModal({ cliente, tenantId, onClose, onChang
       description={cliente ? `${cliente.name} · se renueva cada mes` : undefined}
     >
       <div className="space-y-5">
-        {cargando && <p className="text-sm text-sand-500">Cargando…</p>}
+        {cargando && <p className="text-sm text-sand-700">Cargando…</p>}
 
         {!cargando && subs.length === 0 && (
           <p className="rounded-xl bg-sand-50 px-4 py-3 text-sm text-sand-600">
@@ -87,7 +87,7 @@ export default function SubscriptionsModal({ cliente, tenantId, onClose, onChang
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-semibold text-sand-900">{s.planName}</p>
-                <p className="text-xs text-sand-500">
+                <p className="text-sm text-sand-700">
                   Desde {formatShortDate(s.startedOn)}
                   {s.status !== 'active' && ` · ${s.status === 'paused' ? 'pausado' : 'dado de baja'}`}
                 </p>
@@ -95,14 +95,14 @@ export default function SubscriptionsModal({ cliente, tenantId, onClose, onChang
               <div className="text-right">
                 <p className="tabular text-xl font-bold text-primary-700">
                   {s.restantes}
-                  <span className="text-sm font-normal text-sand-400"> / {s.usesPerPeriod}</span>
+                  <span className="text-sm font-normal text-sand-600"> / {s.usesPerPeriod}</span>
                 </p>
-                <p className="text-xs text-sand-500">le quedan este mes</p>
+                <p className="text-sm text-sand-700">le quedan este mes</p>
               </div>
             </div>
 
             {s.periodStart && (
-              <p className="text-xs text-sand-400">
+              <p className="text-sm text-sand-600">
                 Período actual: {formatShortDate(s.periodStart)} a {formatShortDate(s.periodEnd)}
               </p>
             )}
@@ -112,14 +112,14 @@ export default function SubscriptionsModal({ cliente, tenantId, onClose, onChang
                 <button
                   type="button"
                   onClick={() => cambiarEstado(s, s.status === 'active' ? 'paused' : 'active')}
-                  className="btn-outline px-3 py-1.5 text-xs"
+                  className="btn-outline px-3 py-1.5 text-sm"
                 >
                   {s.status === 'active' ? 'Pausar' : 'Reactivar'}
                 </button>
                 <button
                   type="button"
                   onClick={() => cambiarEstado(s, 'cancelled')}
-                  className="btn-ghost px-3 py-1.5 text-xs text-red-700"
+                  className="btn-ghost px-3 py-1.5 text-sm text-red-700"
                 >
                   Dar de baja
                 </button>
@@ -131,7 +131,7 @@ export default function SubscriptionsModal({ cliente, tenantId, onClose, onChang
         <form onSubmit={asignar} className="space-y-3 border-t border-sand-200 pt-4">
           <p className="text-sm font-semibold text-sand-900">Asignar un plan</p>
           {planes.length === 0 ? (
-            <p className="text-sm text-sand-500">
+            <p className="text-sm text-sand-700">
               No hay planes activos. Creá uno primero desde <strong>Planes</strong>.
             </p>
           ) : (

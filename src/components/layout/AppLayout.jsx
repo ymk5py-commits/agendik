@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { isDemoMode } from '../../api/backend'
-import { Logo } from '../Logo'
+import { Logo, LogoMark } from '../Logo'
+import { BusinessMark } from '../BusinessMark'
 import { initials } from '../../utils/format'
 
 const NAV_CLIENTE = [
@@ -41,12 +42,20 @@ const NAV_PLATAFORMA = { to: '/negocios', label: 'Negocios', icon: Building2 }
 
 const ROL = { owner: 'Dueña del negocio', staff: 'Equipo' }
 
+/** Enlace de navegación de la barra superior: 44px de alto, estado actual con color + aria-current. */
+const linkClase = ({ isActive }) =>
+  `flex min-h-[44px] cursor-pointer items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm font-medium transition-colors duration-150 ${
+    isActive ? 'bg-primary-100 text-primary-900' : 'text-sand-700 hover:bg-sand-100 hover:text-sand-900'
+  }`
+
 export default function AppLayout({ children }) {
-  const { client, staff, tenant, isPlatformAdmin, logout } = useAuth()
-  const persona = staff || client
-  const base = staff ? NAV_EQUIPO : NAV_CLIENTE
+  const { user, client, staff, tenant, isPlatformAdmin, logout } = useAuth()
+  const persona = staff || client || { name: 'Administrador', email: user?.email }
+  const base = staff ? NAV_EQUIPO : client ? NAV_CLIENTE : []
   const NAV = isPlatformAdmin ? [...base, NAV_PLATAFORMA] : base
   const inicio = staff ? '/agenda' : '/dashboard'
+  // En el portal de un negocio el negocio va al frente (como en sus páginas públicas); Agendik queda de firma.
+  const conNegocio = Boolean(tenant) && !isPlatformAdmin
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -69,6 +78,8 @@ export default function AppLayout({ children }) {
     navigate('/', { replace: true })
   }
 
+  const rolTexto = isPlatformAdmin ? 'Administración de Agendik' : staff ? ROL[staff.role] || 'Equipo' : 'Cliente'
+
   return (
     <div className="min-h-dvh bg-sand-50">
       <a
@@ -79,58 +90,58 @@ export default function AppLayout({ children }) {
       </a>
 
       {isDemoMode && (
-        <div className="bg-accent-400 px-4 py-1.5 text-center text-xs font-semibold text-primary-950">
-          Modo demo — los datos se guardan solo en este navegador
+        <div className="bg-accent-400 px-4 py-2 text-center text-sm font-semibold text-primary-950">
+          Modo demo: los datos se guardan solo en este navegador
         </div>
       )}
 
-      <header className="sticky top-0 z-40 border-b border-sand-200 bg-white/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-sand-300 bg-white">
         <div className="container-app flex h-16 items-center justify-between gap-4">
-          <NavLink to={inicio} className="shrink-0 rounded-lg" aria-label="Agendik, ir al inicio">
-            <Logo subtitle={tenant?.businessName || 'Portal de citas'} />
+          <NavLink
+            to={inicio}
+            className="flex min-h-[44px] min-w-0 shrink-0 items-center gap-3 rounded-lg"
+            aria-label={`${conNegocio ? tenant.businessName : 'Agendik'}, ir al inicio`}
+          >
+            {conNegocio ? (
+              <>
+                <BusinessMark name={tenant.businessName} className="h-10 w-10 text-base" />
+                <span className="min-w-0 leading-tight">
+                  <span className="block max-w-[11rem] truncate font-display text-base font-bold text-primary-950 sm:max-w-[16rem]">
+                    {tenant.businessName}
+                  </span>
+                  <span className="block text-[0.8125rem] text-sand-600">con Agendik</span>
+                </span>
+              </>
+            ) : (
+              <Logo subtitle="Administración" />
+            )}
           </NavLink>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Navegación principal">
+          <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Navegación principal">
             {NAV.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary-100 text-primary-800'
-                      : 'text-sand-600 hover:bg-sand-100 hover:text-sand-900'
-                  }`
-                }
-              >
+              <NavLink key={to} to={to} className={linkClase}>
                 <Icon className="h-4 w-4" aria-hidden="true" />
                 {label}
               </NavLink>
             ))}
           </nav>
 
-          <div className="hidden items-center gap-3 md:flex">
-            <div className="flex items-center gap-2.5 border-l border-sand-200 pl-3">
+          <div className="hidden items-center gap-2 lg:flex">
+            <div className="flex items-center gap-2.5 border-l border-sand-300 pl-3" title={`${persona?.name} · ${rolTexto}`}>
               <span
                 aria-hidden="true"
-                className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white ${
-                  staff ? 'bg-accent-600' : 'bg-primary-800'
-                }`}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-800 text-[0.8125rem] font-bold text-white"
               >
                 {initials(persona?.name)}
               </span>
-              <span className="leading-tight">
-                <span className="block max-w-[9rem] truncate text-sm font-semibold text-sand-900">
-                  {persona?.name}
-                </span>
-                <span className="block text-xs text-sand-500">
-                  {staff ? ROL[staff.role] || 'Equipo' : 'Cliente'}
-                </span>
+              <span className="hidden leading-tight xl:block">
+                <span className="block max-w-[9rem] truncate text-sm font-semibold text-sand-900">{persona?.name}</span>
+                <span className="block max-w-[9rem] truncate text-[0.8125rem] text-sand-600">{rolTexto}</span>
               </span>
             </div>
-            <button type="button" onClick={handleLogout} className="btn-ghost px-2.5" aria-label="Cerrar sesión">
+            <button type="button" onClick={handleLogout} className="btn-ghost px-3" aria-label="Cerrar sesión">
               <LogOut className="h-4 w-4" aria-hidden="true" />
-              <span className="sr-only sm:not-sr-only">Salir</span>
+              <span className="sr-only xl:not-sr-only">Salir</span>
             </button>
           </div>
 
@@ -139,15 +150,15 @@ export default function AppLayout({ children }) {
             onClick={() => setDrawerOpen(true)}
             aria-label="Abrir menú"
             aria-expanded={drawerOpen}
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-700 transition-colors hover:bg-sand-100 md:hidden"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-800 transition-colors hover:bg-sand-100 lg:hidden"
           >
-            <Menu className="h-5 w-5" aria-hidden="true" />
+            <Menu className="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
       </header>
 
       {drawerOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-primary-950/50 backdrop-blur-sm animate-fade-in"
             onClick={() => setDrawerOpen(false)}
@@ -159,26 +170,24 @@ export default function AppLayout({ children }) {
             aria-label="Menú de navegación"
             className="absolute right-0 top-0 flex h-full w-[min(20rem,85vw)] flex-col bg-white shadow-lifted animate-slide-in-right"
           >
-            <div className="flex items-center justify-between border-b border-sand-200 p-4">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between border-b border-sand-300 p-4">
+              <div className="flex min-w-0 items-center gap-3">
                 <span
                   aria-hidden="true"
-                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${
-                    staff ? 'bg-accent-600' : 'bg-primary-800'
-                  }`}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-800 text-sm font-bold text-white"
                 >
                   {initials(persona?.name)}
                 </span>
-                <span className="leading-tight">
+                <span className="min-w-0 leading-tight">
                   <span className="block truncate text-sm font-semibold text-sand-900">{persona?.name}</span>
-                  <span className="block text-xs text-sand-500">{persona?.email}</span>
+                  <span className="block truncate text-[0.8125rem] text-sand-600">{persona?.email}</span>
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Cerrar menú"
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-500 transition-colors hover:bg-sand-100"
+                className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-sand-700 transition-colors hover:bg-sand-100"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
@@ -190,8 +199,8 @@ export default function AppLayout({ children }) {
                   key={to}
                   to={to}
                   className={({ isActive }) =>
-                    `flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isActive ? 'bg-primary-100 text-primary-800' : 'text-sand-700 hover:bg-sand-100'
+                    `flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl px-3.5 text-base font-medium transition-colors duration-150 ${
+                      isActive ? 'bg-primary-100 text-primary-900' : 'text-sand-800 hover:bg-sand-100'
                     }`
                   }
                 >
@@ -201,11 +210,11 @@ export default function AppLayout({ children }) {
               ))}
             </nav>
 
-            <div className="border-t border-sand-200 p-3">
+            <div className="border-t border-sand-300 p-3">
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50"
+                className="flex min-h-[48px] w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 text-base font-semibold text-rose-700 transition-colors duration-150 hover:bg-rose-50"
               >
                 <LogOut className="h-5 w-5" aria-hidden="true" />
                 Cerrar sesión
@@ -219,10 +228,12 @@ export default function AppLayout({ children }) {
         {children}
       </main>
 
-      <footer className="border-t border-sand-200 py-6">
-        <div className="container-app flex flex-col items-center justify-between gap-2 text-xs text-sand-500 sm:flex-row">
-          <p>
-            Agendik · {tenant?.businessName || 'Portal del cliente'}
+      <footer className="border-t border-sand-300 py-6">
+        <div className="container-app flex flex-col gap-2 text-sm text-sand-600 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-2">
+            Reservas con <LogoMark className="h-5 w-5" />
+            <span className="font-display font-bold text-primary-950">Agendik</span>
+            {conNegocio && <span className="hidden sm:inline">· {tenant.businessName}</span>}
           </p>
           <p>Horarios en zona América/Asunción</p>
         </div>

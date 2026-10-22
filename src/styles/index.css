@@ -1,21 +1,40 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Narrative Workflow · theme: custom (marca Agendik: petróleo / ámbar / arena, OKLCH)
+ * fonts: Bricolage Grotesque + Geist · nav: N1a (2 destinos) · footer: Ft2 · enrichment: Tier A (grilla de agenda en CSS) + maquetas de producto
+ * pre-emit critique: P4 H4 E4 S4 R4 V4 · contrast: pass (40-41) · slop: pass (42-45) · tokens: pass (48) · mobile: pass (34, 49, 50-57)
+ * Ver DESIGN.md. Los colores y fuentes salen de tokens.css y tailwind.config.js; no se improvisan valores en los componentes.
+ */
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    /* `clip` (no `hidden`) para no romper sticky ni el foco */
+    overflow-x: clip;
   }
 
   body {
-    @apply bg-sand-50 font-sans text-sand-900;
+    @apply bg-sand-50 font-sans text-sand-800;
+    overflow-x: clip;
+    line-height: 1.55;
   }
 
-  /* Títulos siempre en la display, peso alto, sin cursivas */
+  /* Títulos siempre en la display, sin cursivas ni degradés */
   h1, h2, h3, h4 {
-    @apply font-display font-bold tracking-tight;
+    @apply font-display font-bold tracking-tight text-primary-950;
+    font-style: normal;
+    overflow-wrap: break-word;
+  }
+
+  ::selection {
+    @apply bg-accent-200 text-primary-950;
   }
 
   /* Horas, precios y contadores alineados */
@@ -23,55 +42,110 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Foco: anillo de 2px, visible al instante (nunca animado), 3:1 sobre claro y sobre oscuro */
   :focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-sand-50;
+    outline: 2px solid oklch(var(--primary-600));
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+  .surface-dark :focus-visible {
+    outline-color: oklch(var(--accent-300));
   }
 
   @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
     *, *::before, *::after {
+      animation-delay: 0s !important;
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
+      transition-delay: 0s !important;
       transition-duration: 0.01ms !important;
     }
   }
 }
 
 @layer components {
+  /* ---------- Botones ---------- */
+  /* 44px mínimo de alto (área táctil), estados siempre distintos */
   .btn {
-    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5
-           text-sm font-semibold transition-all duration-200
-           disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-[44px] min-w-[44px] cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-xl px-5 py-2.5
+           text-sm font-semibold leading-none
+           transition-[background-color,border-color,color,transform] duration-150 ease-out
+           active:translate-y-px
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0;
   }
 
   .btn-primary {
-    @apply btn bg-primary-800 text-white hover:bg-primary-700 active:scale-[0.98];
+    @apply btn bg-primary-800 text-white hover:bg-primary-700;
   }
 
   .btn-accent {
-    @apply btn bg-accent-400 text-primary-950 hover:bg-accent-300 active:scale-[0.98];
+    @apply btn bg-accent-400 text-primary-950 hover:bg-accent-300;
   }
 
   .btn-outline {
-    @apply btn border border-sand-200 bg-white text-sand-800 hover:border-primary-300 hover:text-primary-800 active:scale-[0.98];
+    @apply btn border border-edge bg-white text-sand-800 hover:border-primary-600 hover:text-primary-800;
   }
 
   .btn-ghost {
     @apply btn text-sand-700 hover:bg-sand-100 hover:text-primary-800;
   }
 
+  /* Sobre superficie oscura: contorno claro */
+  .btn-on-dark {
+    @apply btn border border-primary-600 text-white hover:border-primary-300 hover:bg-primary-900;
+  }
+
   .btn-danger {
-    @apply btn bg-rose-600 text-white hover:bg-rose-700 active:scale-[0.98];
+    @apply btn bg-rose-600 text-white hover:bg-rose-700;
   }
 
+  .btn-lg {
+    @apply min-h-[48px] px-7 text-base;
+  }
+
+  /*
+   * Opción seleccionable (servicio, profesional, plan, paquete). El estado va en aria-pressed, no en clases:
+   * seleccionado = borde y anillo petróleo + fondo suave (el check lo pone el componente). Borde de 1px siempre.
+   */
+  .option {
+    @apply flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl border border-sand-300 bg-white p-4 text-left
+           transition-[border-color,background-color] duration-150 ease-out
+           hover:border-primary-500
+           aria-pressed:border-primary-600 aria-pressed:bg-primary-50 aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-primary-600;
+  }
+
+  /* ---------- Superficies ---------- */
+  /* Un borde de pelo + sombra susurro. No se anidan tarjetas dentro de tarjetas. */
   .card {
-    @apply rounded-2xl border border-sand-200 bg-white p-4 shadow-soft sm:p-6;
+    @apply rounded-2xl border border-sand-200 bg-white p-5 shadow-soft sm:p-6;
   }
 
+  /* ---------- Formularios ---------- */
+  /* 16px para que iOS no haga zoom al enfocar; 48px de alto táctil; borde 3:1 */
   .input {
-    @apply w-full rounded-xl border border-sand-200 bg-white px-3.5 py-2.5 text-sm text-sand-900
-           placeholder:text-sand-400 transition-colors
-           focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/25
-           disabled:bg-sand-100 disabled:text-sand-500;
+    @apply min-h-[48px] w-full rounded-xl border border-edge bg-white px-4 py-3 text-base text-sand-900
+           placeholder:text-sand-500
+           transition-[border-color] duration-150 ease-out
+           hover:border-sand-600
+           disabled:cursor-not-allowed disabled:bg-sand-100 disabled:text-sand-500;
+    /* Reservado en reposo para que el foco no mueva la geometría; aparece al instante (sin transición) */
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+  }
+
+  .input:focus {
+    @apply border-primary-600;
+    outline-color: oklch(var(--primary-600));
+  }
+
+  .input[aria-invalid='true'] {
+    @apply border-rose-600;
+  }
+  .input[aria-invalid='true']:focus {
+    outline-color: oklch(var(--rose-600));
   }
 
   .label {
@@ -84,5 +158,37 @@
 
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  /* ---------- Marca ---------- */
+  /*
+   * Motivo de «grilla de agenda»: renglones horarios y columnas de días en líneas finas, con unos pocos bloques
+   * reservados. Es el único adorno de las superficies oscuras y habla del producto (una agenda), no es decoración suelta.
+   */
+  .agenda-grid {
+    background-image:
+      repeating-linear-gradient(to bottom, transparent 0 55px, oklch(var(--primary-800) / 0.7) 55px 56px),
+      repeating-linear-gradient(to right, transparent 0 119px, oklch(var(--primary-800) / 0.45) 119px 120px);
+  }
+
+  /* ---------- Entrada al hacer scroll (una sola vez, solo transform + opacity) ---------- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 560ms var(--ease-out),
+      transform 560ms var(--ease-out);
+    transition-delay: calc(var(--i, 0) * 70ms);
+  }
+  .reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
   }
 }

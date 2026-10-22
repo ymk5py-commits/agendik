@@ -5,7 +5,7 @@ import { Field, Modal, Spinner } from '../ui'
 
 const VACIO = { businessName: '', slug: '', phone: '', ownerName: '', ownerEmail: '' }
 
-/** "Estudio Alma" → "estudio-alma" */
+/** Convierte el nombre del negocio en su identificador para enlaces. */
 function aSlug(texto) {
   return texto
     .normalize('NFD')
@@ -99,19 +99,19 @@ export default function BusinessFormModal({ open, onClose, onCreated }) {
         <div className="space-y-4">
           <div className="card space-y-3 bg-sand-50 p-4">
             <div>
-              <p className="text-xs text-sand-500">Entra con</p>
+              <p className="text-sm text-sand-700">Entra con</p>
               <p className="font-semibold text-sand-900">{creado.ownerEmail}</p>
             </div>
             <div>
-              <p className="text-xs text-sand-500">Contraseña temporal</p>
+              <p className="text-sm text-sand-700">Contraseña temporal</p>
               <p className="tabular text-xl font-bold text-primary-700">{creado.ownerPassword}</p>
             </div>
             <div>
-              <p className="text-xs text-sand-500">Portal de sus clientes</p>
+              <p className="text-sm text-sand-700">Portal de sus clientes</p>
               <p className="break-all text-sm text-sand-700">{link}</p>
             </div>
           </div>
-          <p className="text-sm text-sand-500">
+          <p className="text-sm text-sand-700">
             Conviene que la cambie al entrar, desde <strong>Mi cuenta</strong>.
           </p>
           <div className="flex justify-end">
@@ -138,7 +138,7 @@ export default function BusinessFormModal({ open, onClose, onCreated }) {
             className="input"
             value={form.businessName}
             onChange={set('businessName')}
-            placeholder="Estudio Alma"
+            placeholder="Nombre de tu negocio"
           />
         </Field>
 
@@ -157,7 +157,7 @@ export default function BusinessFormModal({ open, onClose, onCreated }) {
               setSlugTocado(true)
               setForm((f) => ({ ...f, slug: e.target.value }))
             }}
-            placeholder="estudio-alma"
+            placeholder="nombre-del-negocio"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck="false"

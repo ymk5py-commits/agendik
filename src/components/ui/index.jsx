@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Loader2, X } from 'lucide-react'
+import { AlertCircle, Loader2, X } from 'lucide-react'
 
 export function Spinner({ className = 'h-5 w-5' }) {
   return <Loader2 className={`animate-spin ${className}`} aria-hidden="true" />
@@ -7,7 +7,7 @@ export function Spinner({ className = 'h-5 w-5' }) {
 
 export function PageLoader({ label = 'Cargando…' }) {
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-sand-500">
+    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-sand-700">
       <Spinner className="h-7 w-7 text-primary-600" />
       <p className="text-sm">{label}</p>
     </div>
@@ -24,18 +24,31 @@ export function Badge({ children, className = '' }) {
 
 export function EmptyState({ icon: Icon, title, description, action }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-sand-300 bg-sand-50/60 px-6 py-10 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-edge bg-white px-6 py-10 text-center">
       {Icon && (
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-primary-600 shadow-soft">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
           <Icon className="h-6 w-6" aria-hidden="true" />
         </span>
       )}
       <div>
-        <p className="font-display text-base font-semibold text-sand-900">{title}</p>
-        {description && <p className="mt-1 max-w-sm text-sm text-sand-500">{description}</p>}
+        <p className="font-display text-lg font-bold text-primary-950">{title}</p>
+        {description && <p className="mt-1 max-w-sm text-base text-sand-700">{description}</p>}
       </div>
       {action}
     </div>
+  )
+}
+
+/** Aviso de error de formulario: ícono + texto, nunca solo color. */
+export function ErrorBanner({ children }) {
+  return (
+    <p
+      role="alert"
+      className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800"
+    >
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
   )
 }
 
@@ -45,7 +58,7 @@ export function ErrorState({ message, onRetry }) {
       role="alert"
       className="flex flex-col items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-6 py-8 text-center"
     >
-      <p className="text-sm font-medium text-rose-800">{message}</p>
+      <p className="text-base font-medium text-rose-800">{message}</p>
       {onRetry && (
         <button type="button" onClick={onRetry} className="btn-outline">
           Reintentar
@@ -112,13 +125,13 @@ export function Modal({ open, onClose, title, description, children, footer }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-lg font-bold text-sand-900">{title}</h2>
-            {description && <p className="mt-1 text-sm text-sand-500">{description}</p>}
+            {description && <p className="mt-1 text-base text-sand-700">{description}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="-m-1.5 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sand-400 transition-colors hover:bg-sand-100 hover:text-sand-700"
+            className="-m-1.5 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-sand-700 transition-colors hover:bg-sand-100 hover:text-sand-900"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -130,21 +143,26 @@ export function Modal({ open, onClose, title, description, children, footer }) {
   )
 }
 
-/** Campo de formulario con label visible, error debajo y ayuda persistente */
-export function Field({ label, htmlFor, error, hint, required, children }) {
+/**
+ * Campo de formulario con label visible, error debajo y ayuda persistente.
+ * `reserve` deja un renglón libre bajo el campo, así un error que aparece no empuja el resto de la pantalla.
+ */
+export function Field({ label, htmlFor, error, hint, required, reserve = false, children }) {
   return (
     <div>
       <label htmlFor={htmlFor} className="label">
         {label}
-        {required && <span className="ml-0.5 text-rose-600" aria-hidden="true">*</span>}
+        {required && <span className="ml-0.5 text-rose-700" aria-hidden="true">*</span>}
       </label>
       {children}
-      {hint && !error && <p className="mt-1.5 text-xs text-sand-500">{hint}</p>}
-      {error && (
-        <p role="alert" className="mt-1.5 text-xs font-medium text-rose-700">
-          {error}
-        </p>
-      )}
+      <div className={reserve ? 'mt-1.5 min-h-[1.25rem]' : undefined}>
+        {hint && !error && <p className={`text-sm text-sand-700 ${reserve ? '' : 'mt-1.5'}`}>{hint}</p>}
+        {error && (
+          <p role="alert" className={`text-sm font-medium text-rose-700 ${reserve ? '' : 'mt-1.5'}`}>
+            {error}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

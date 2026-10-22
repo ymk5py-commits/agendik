@@ -19,6 +19,16 @@ export function formatShortDate(dateStr) {
   return format(d, 'd MMM', { locale: es })
 }
 
+/** "2026-10-04" → { weekday: 'dom', day: '4', month: 'oct' } (para la ficha de fecha de una cita) */
+export function formatDayParts(dateStr) {
+  const d = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr
+  return {
+    weekday: format(d, 'EEE', { locale: es }).replace('.', ''),
+    day: format(d, 'd'),
+    month: format(d, 'MMM', { locale: es }).replace('.', ''),
+  }
+}
+
 /** Date → "yyyy-MM-dd" (clave estándar interna) */
 export function toDateKey(date) {
   return format(date, 'yyyy-MM-dd')

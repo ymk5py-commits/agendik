@@ -19,19 +19,28 @@ export default function AdminBusinesses() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-sand-900">Negocios</h1>
-          <p className="mt-0.5 text-sm text-sand-500">
+          <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Negocios</h1>
+          <p className="mt-1 text-base text-sand-700">
             Los negocios que usan Agendik. Cada uno con su agenda y sus clientes.
           </p>
         </div>
-        <button type="button" onClick={() => setModalAbierto(true)} className="btn-accent">
+        <button type="button" onClick={() => setModalAbierto(true)} className="btn-primary btn-lg">
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Nuevo negocio
+          Dar de alta un negocio
         </button>
       </div>
 
+      <section aria-labelledby="alta-negocio" className="rounded-2xl bg-primary-50 p-5 sm:p-7">
+        <h2 id="alta-negocio" className="font-display text-xl font-bold">De nuevo negocio a primera reserva</h2>
+        <ol className="mt-4 grid grid-cols-1 gap-5 text-base md:grid-cols-3">
+          <li><span className="font-semibold text-primary-900">1. Creá el negocio</span><p className="mt-1 text-sand-700">Ingresá su nombre, el enlace del portal y el correo del dueño.</p></li>
+          <li><span className="font-semibold text-primary-900">2. Entregá el acceso</span><p className="mt-1 text-sand-700">Copiá la contraseña que aparece al finalizar y compartila de forma privada con el dueño.</p></li>
+          <li><span className="font-semibold text-primary-900">3. Prepará la agenda</span><p className="mt-1 text-sand-700">El dueño carga servicios, profesionales y horarios. Después comparte su portal con los clientes.</p></li>
+        </ol>
+      </section>
+
       {negocios.loading && <Skeleton className="h-24" />}
-      {negocios.error && <ErrorState onRetry={negocios.reload} />}
+      {negocios.error && <ErrorState message={negocios.error} onRetry={negocios.reload} />}
 
       {!negocios.loading && !negocios.error && lista.length === 0 && (
         <EmptyState
@@ -47,16 +56,16 @@ export default function AdminBusinesses() {
       )}
 
       {lista.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-sand-200 overflow-hidden rounded-2xl border border-sand-200 bg-white">
           {lista.map((n) => (
-            <li key={n.id} className="card flex flex-wrap items-center gap-4 p-4">
+            <li key={n.id} className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
                 <Building2 className="h-5 w-5" aria-hidden="true" />
               </div>
 
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-sand-900">{n.businessName}</p>
-                <p className="truncate text-sm text-sand-500">
+                <p className="truncate text-sm text-sand-700">
                   {n.ownerEmail || 'sin dueño asignado'}
                 </p>
               </div>
@@ -65,14 +74,14 @@ export default function AdminBusinesses() {
                 href={`/n/${n.slug}`}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-outline px-3 py-2 text-sm"
+                className="btn-outline text-sm"
                 title="Abrir el portal de sus clientes"
               >
                 /n/{n.slug}
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
               </a>
 
-              <span className="hidden text-xs text-sand-400 sm:inline">
+              <span className="hidden text-sm text-sand-700 sm:inline">
                 desde {formatShortDate(n.createdAt)}
               </span>
             </li>

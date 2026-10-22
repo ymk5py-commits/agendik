@@ -16,25 +16,25 @@ export default function StepIndicator({ steps, current, onStepClick }) {
                 disabled={!clickable}
                 onClick={() => clickable && onStepClick(index)}
                 aria-current={active ? 'step' : undefined}
-                className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors sm:px-3 ${
+                className={`flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors sm:px-3 ${
                   clickable ? 'cursor-pointer hover:bg-sand-100' : 'cursor-default'
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
                     done
                       ? 'bg-primary-700 text-white'
                       : active
                         ? 'bg-accent-400 text-primary-950'
-                        : 'bg-sand-200 text-sand-500'
+                        : 'bg-sand-200 text-sand-700'
                   }`}
                 >
                   {done ? <Check className="h-3.5 w-3.5" /> : index + 1}
                 </span>
                 <span
                   className={`hidden truncate text-sm font-semibold sm:block ${
-                    active ? 'text-sand-900' : done ? 'text-primary-700' : 'text-sand-400'
+                    active ? 'text-sand-900' : done ? 'text-primary-800' : 'text-sand-600'
                   }`}
                 >
                   {step}
@@ -52,7 +52,7 @@ export default function StepIndicator({ steps, current, onStepClick }) {
         })}
       </ol>
 
-      <p className="mt-2 text-sm font-semibold text-sand-900 sm:hidden">
+      <p className="mt-2 text-base font-semibold text-sand-900 sm:hidden">
         Paso {current + 1} de {steps.length} · {steps[current]}
       </p>
     </nav>

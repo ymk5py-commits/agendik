@@ -63,19 +63,19 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
       {/* Calendario */}
-      <div className="rounded-2xl border border-sand-200 bg-white p-4">
+      <div className="rounded-2xl border border-sand-200 bg-white p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => setMonth((m) => subMonths(m, 1))}
             disabled={!canGoBack}
             aria-label="Mes anterior"
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-600 transition-colors hover:bg-sand-100 disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-800 transition-colors hover:bg-sand-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <h3 className="font-display text-base font-bold capitalize text-sand-900" aria-live="polite">
+          <h3 className="font-display text-lg font-bold capitalize text-primary-950" aria-live="polite">
             {format(month, 'MMMM yyyy', { locale: es })}
           </h3>
 
@@ -83,7 +83,7 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
             type="button"
             onClick={() => setMonth((m) => addMonths(m, 1))}
             aria-label="Mes siguiente"
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-600 transition-colors hover:bg-sand-100"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-sand-800 transition-colors hover:bg-sand-100"
           >
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -91,7 +91,7 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
 
         <div className="mt-4 grid grid-cols-7 gap-1.5" role="grid" aria-label="Calendario de disponibilidad">
           {WEEKDAY_LABELS.map((label) => (
-            <div key={label} className="pb-1 text-center text-xs font-semibold text-sand-400" role="columnheader">
+            <div key={label} className="pb-1 text-center text-sm font-semibold text-sand-700" role="columnheader">
               {label}
             </div>
           ))}
@@ -120,13 +120,13 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
                 aria-label={`${format(day, "d 'de' MMMM", { locale: es })}${
                   free ? `, ${count} horarios libres` : ', sin disponibilidad'
                 }`}
-                className={`relative flex aspect-square min-h-[44px] cursor-pointer flex-col items-center justify-center rounded-xl text-sm font-semibold tabular transition-all duration-200 disabled:cursor-not-allowed ${
+                className={`relative flex h-12 min-h-[44px] cursor-pointer flex-col items-center justify-center rounded-xl text-base font-semibold tabular transition-colors duration-150 disabled:cursor-not-allowed ${
                   selected
                     ? 'bg-primary-800 text-white'
                     : free
                       ? 'bg-primary-50 text-primary-800 hover:bg-primary-100'
-                      : 'text-sand-300'
-                } ${isToday && !selected ? 'ring-1 ring-inset ring-accent-400' : ''}`}
+                      : 'text-sand-500'
+                } ${isToday && !selected ? 'ring-2 ring-inset ring-accent-500' : ''}`}
               >
                 {format(day, 'd')}
                 {free && !selected && (
@@ -137,31 +137,31 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
           })}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-sand-200 pt-3 text-xs text-sand-500">
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 border-t border-sand-200 pt-3 text-sm text-sand-700">
           <span className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="h-2.5 w-2.5 rounded bg-primary-50 ring-1 ring-inset ring-primary-200" />
+            <span aria-hidden="true" className="h-3.5 w-3.5 rounded bg-primary-100 ring-1 ring-inset ring-primary-400" />
             Con lugar
           </span>
           <span className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="h-2.5 w-2.5 rounded bg-sand-100" />
+            <span aria-hidden="true" className="h-3.5 w-3.5 rounded bg-sand-200 ring-1 ring-inset ring-sand-400" />
             Sin lugar
           </span>
           <span className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="h-2.5 w-2.5 rounded ring-1 ring-accent-400" />
+            <span aria-hidden="true" className="h-3 w-3 rounded ring-2 ring-accent-500" />
             Hoy
           </span>
         </div>
       </div>
 
       {/* Horarios */}
-      <div className="rounded-2xl border border-sand-200 bg-white p-4">
-        <h3 className="flex items-center gap-1.5 font-display text-base font-bold text-sand-900">
+      <div className="rounded-2xl border border-sand-200 bg-white p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 font-display text-lg font-bold text-primary-950">
           <Clock className="h-4 w-4 text-primary-600" aria-hidden="true" />
           Horarios
         </h3>
 
         {!selectedDate ? (
-          <p className="mt-4 text-sm text-sand-500">Elegí primero un día del calendario.</p>
+          <p className="mt-4 text-base text-sand-700">Elegí primero un día del calendario.</p>
         ) : slots.loading ? (
           <div className="mt-4 grid grid-cols-3 gap-2">
             {Array.from({ length: 9 }).map((_, i) => (
@@ -182,7 +182,7 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
           </div>
         ) : (
           <>
-            <p className="mt-1 text-xs text-sand-500">
+            <p className="mt-1 text-sm text-sand-700">
               {slots.data.length} horario{slots.data.length > 1 ? 's' : ''} disponible
               {slots.data.length > 1 ? 's' : ''}
             </p>
@@ -200,10 +200,10 @@ export default function StepDateTime({ professionalId, durationMin, capacity = 1
                     role="radio"
                     aria-checked={selected}
                     onClick={() => onSelectTime(time)}
-                    className={`min-h-[44px] cursor-pointer rounded-xl text-sm font-semibold tabular transition-all duration-200 ${
+                    className={`min-h-[44px] cursor-pointer rounded-xl text-base font-semibold tabular transition-colors duration-150 ${
                       selected
                         ? 'bg-primary-800 text-white'
-                        : 'bg-sand-50 text-sand-700 ring-1 ring-inset ring-sand-200 hover:bg-primary-50 hover:text-primary-800 hover:ring-primary-300'
+                        : 'bg-white text-sand-800 ring-1 ring-inset ring-edge hover:bg-primary-50 hover:text-primary-900 hover:ring-primary-500'
                     }`}
                   >
                     {time}

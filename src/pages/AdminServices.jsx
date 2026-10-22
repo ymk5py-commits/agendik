@@ -49,8 +49,8 @@ export default function AdminServices() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-sand-900 sm:text-3xl">Servicios</h1>
-          <p className="mt-1 text-sm text-sand-600">
+          <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Servicios</h1>
+          <p className="mt-1 text-base text-sand-700">
             Lo que ofrecés, cuánto dura y cuánto sale. Es lo que ven tus clientes al reservar.
           </p>
         </div>
@@ -60,7 +60,7 @@ export default function AdminServices() {
             setEditando(null)
             setAbierto(true)
           }}
-          className="btn-accent"
+          className="btn-primary btn-lg"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Nuevo servicio
@@ -73,7 +73,7 @@ export default function AdminServices() {
             type="checkbox"
             checked={mostrarBajas}
             onChange={(e) => setMostrarBajas(e.target.checked)}
-            className="h-4 w-4 cursor-pointer rounded border-sand-300 text-primary-700 focus:ring-primary-500"
+            className="h-5 w-5 cursor-pointer rounded border-edge accent-primary-700"
           />
           Mostrar los {dadosDeBaja} dados de baja
         </label>
@@ -113,12 +113,12 @@ export default function AdminServices() {
       <div className="space-y-6">
         {porCategoria.map(([categoria, delGrupo]) => (
           <section key={categoria}>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-sand-500">{categoria}</h2>
-            <ul className="space-y-2.5">
+            <h2 className="mb-3 font-display text-xl font-bold">{categoria}</h2>
+            <ul className="divide-y divide-sand-200 overflow-hidden rounded-2xl border border-sand-200 bg-white">
               {delGrupo.map((s) => (
                 <li
                   key={s.id}
-                  className={`card flex flex-wrap items-center gap-4 p-4 sm:p-4 ${s.active ? '' : 'opacity-60'}`}
+                  className={`flex flex-wrap items-center gap-4 p-4 sm:p-5 ${s.active ? '' : 'opacity-60'}`}
                 >
                   <div className="min-w-[10rem] flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -130,7 +130,7 @@ export default function AdminServices() {
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-sm text-sand-500">{formatDuration(s.durationMin)}</p>
+                    <p className="mt-0.5 text-sm text-sand-700">{formatDuration(s.durationMin)}</p>
                   </div>
 
                   <span className="tabular font-semibold text-sand-900">{formatGs(s.price)}</span>
@@ -143,7 +143,7 @@ export default function AdminServices() {
                         setAbierto(true)
                       }}
                       aria-label={`Editar ${s.name}`}
-                      className="btn-ghost px-2.5"
+                      className="btn-ghost min-w-[44px] px-3"
                     >
                       <Pencil className="h-4 w-4" aria-hidden="true" />
                     </button>
@@ -151,7 +151,7 @@ export default function AdminServices() {
                       type="button"
                       onClick={() => cambiarEstado(s)}
                       aria-label={s.active ? `Dar de baja ${s.name}` : `Reactivar ${s.name}`}
-                      className={s.active ? 'btn-ghost px-2.5 text-rose-700' : 'btn-ghost px-2.5 text-emerald-700'}
+                      className={s.active ? 'btn-ghost min-w-[44px] px-3 text-rose-700' : 'btn-ghost min-w-[44px] px-3 text-emerald-700'}
                     >
                       {s.active ? (
                         <Trash2 className="h-4 w-4" aria-hidden="true" />

@@ -49,30 +49,26 @@ export default function StepProfessional({
             onClick={() => onSelect(pro.id)}
             aria-pressed={selected}
             aria-label={`${pro.name}, especialidades: ${pro.specialties.join(', ')}`}
-            className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 text-left transition-all duration-200 ${
-              selected
-                ? 'border-primary-600 bg-primary-50 ring-2 ring-primary-600/20'
-                : 'border-sand-200 bg-white hover:border-primary-300'
-            }`}
+            className="option justify-start"
           >
             <span
               aria-hidden="true"
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors ${
-                selected ? 'bg-primary-800 text-white' : 'bg-sand-200 text-sand-700'
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                selected ? 'bg-primary-800 text-white' : 'bg-sand-100 text-sand-800'
               }`}
             >
               {initials(pro.name)}
             </span>
 
             <div className="min-w-0 flex-1">
-              <p className="font-display text-sm font-bold text-sand-900">{pro.name}</p>
-              <p className="mt-0.5 truncate text-xs text-sand-500">{pro.specialties.join(' · ')}</p>
+              <p className="font-display text-base font-bold text-primary-950">{pro.name}</p>
+              <p className="mt-0.5 truncate text-sm text-sand-700">{pro.specialties.join(' · ')}</p>
             </div>
 
             <span
               aria-hidden="true"
               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                selected ? 'border-primary-700 bg-primary-700 text-white' : 'border-sand-300'
+                selected ? 'border-primary-700 bg-primary-700 text-white' : 'border-edge'
               }`}
             >
               {selected && <Check className="h-3.5 w-3.5" />}

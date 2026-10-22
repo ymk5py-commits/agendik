@@ -69,21 +69,21 @@ export default function AdminProfile() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-sand-900 sm:text-3xl">Mi cuenta</h1>
-        <p className="mt-1 text-sm text-sand-600">Tus datos de acceso al panel del negocio.</p>
+        <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Mi cuenta</h1>
+        <p className="mt-1 text-base text-sand-700">Tus datos de acceso al panel del negocio.</p>
       </header>
 
       <section className="card">
         <div className="flex items-center gap-4">
           <span
             aria-hidden="true"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-600 text-lg font-bold text-white"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-800 text-lg font-bold text-white"
           >
             {initials(staff?.name)}
           </span>
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold text-sand-900">{staff?.name}</p>
-            <p className="flex items-center gap-1.5 text-sm text-sand-500">
+            <p className="flex items-center gap-1.5 text-sm text-sand-700">
               <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
               {rol.label}
             </p>
@@ -92,22 +92,22 @@ export default function AdminProfile() {
 
         <dl className="mt-5 space-y-3 border-t border-sand-200 pt-5 text-sm">
           <div className="flex items-start gap-2.5">
-            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-sand-400" aria-hidden="true" />
+            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-sand-600" aria-hidden="true" />
             <div>
-              <dt className="text-sand-500">Email de acceso</dt>
+              <dt className="text-sand-700">Email de acceso</dt>
               <dd className="font-medium text-sand-900">{staff?.email}</dd>
             </div>
           </div>
           <div className="flex items-start gap-2.5">
-            <Store className="mt-0.5 h-4 w-4 shrink-0 text-sand-400" aria-hidden="true" />
+            <Store className="mt-0.5 h-4 w-4 shrink-0 text-sand-600" aria-hidden="true" />
             <div>
-              <dt className="text-sand-500">Negocio</dt>
+              <dt className="text-sand-700">Negocio</dt>
               <dd className="font-medium text-sand-900">{tenant?.businessName}</dd>
             </div>
           </div>
         </dl>
 
-        <p className="mt-4 rounded-xl bg-sand-100 px-3.5 py-2.5 text-xs text-sand-600">
+        <p className="mt-4 rounded-xl bg-sand-100 px-3.5 py-2.5 text-sm text-sand-600">
           El email y tu rol no se cambian desde acá. Son la llave de tu acceso, así que los ajusta
           quien administra el negocio directamente en la base.
         </p>

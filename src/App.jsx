@@ -204,14 +204,14 @@ export default function App() {
           toastOptions={{
             duration: 3500,
             style: {
-              background: '#143830',
-              color: '#F3F1EA',
+              background: 'oklch(var(--primary-900))',
+              color: 'oklch(var(--sand-100))',
               fontSize: '0.875rem',
               borderRadius: '0.75rem',
               padding: '0.75rem 1rem',
             },
-            success: { iconTheme: { primary: '#55A78E', secondary: '#143830' } },
-            error: { iconTheme: { primary: '#FB7185', secondary: '#143830' } },
+            success: { iconTheme: { primary: 'oklch(var(--primary-400))', secondary: 'oklch(var(--primary-900))' } },
+            error: { iconTheme: { primary: 'oklch(var(--rose-300))', secondary: 'oklch(var(--primary-900))' } },
           }}
         />
       </AuthProvider>

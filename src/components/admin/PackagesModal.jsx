@@ -96,14 +96,14 @@ export default function PackagesModal({ cliente, tenantId, onClose, onChanged })
                       <button
                         type="button"
                         onClick={() => cerrarPaquete(p, 'completed')}
-                        className="btn-ghost px-2 py-1 text-xs"
+                        className="btn-ghost px-2 py-1 text-sm"
                       >
                         Cerrar
                       </button>
                       <button
                         type="button"
                         onClick={() => cerrarPaquete(p, 'cancelled')}
-                        className="btn-ghost px-2 py-1 text-xs text-rose-700"
+                        className="btn-ghost px-2 py-1 text-sm text-rose-700"
                       >
                         Cancelar
                       </button>
@@ -124,11 +124,11 @@ export default function PackagesModal({ cliente, tenantId, onClose, onChanged })
 
                 <dl className="mt-2.5 space-y-0.5 border-t border-sand-200 pt-2.5 text-sm">
                   <div className="flex justify-between">
-                    <dt className="text-sand-500">Precio</dt>
+                    <dt className="text-sand-700">Precio</dt>
                     <dd className="tabular text-sand-900">{formatGs(p.finalPrice)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-sand-500">Pagado</dt>
+                    <dt className="text-sand-700">Pagado</dt>
                     <dd className="tabular text-emerald-700">{formatGs(p.totalPaid)}</dd>
                   </div>
                   <div className="flex justify-between font-semibold">
@@ -234,7 +234,7 @@ function FormularioPaquete({ tenantId, clienteId, onCancel, onSaved }) {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-sand-800">{s.name}</p>
-                  <p className="tabular text-xs text-sand-500">{formatGs(s.price)} c/u</p>
+                  <p className="tabular text-sm text-sand-700">{formatGs(s.price)} c/u</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button

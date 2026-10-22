@@ -41,8 +41,8 @@ export default function AdminProfessionals() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-sand-900 sm:text-3xl">Profesionales</h1>
-          <p className="mt-1 text-sm text-sand-600">
+          <h1 className="font-display text-3xl font-extrabold sm:text-4xl">Profesionales</h1>
+          <p className="mt-1 text-base text-sand-700">
             Quiénes atienden y en qué horarios. De acá salen los huecos que ve el cliente.
           </p>
         </div>
@@ -52,7 +52,7 @@ export default function AdminProfessionals() {
             setEditando(null)
             setAbierto(true)
           }}
-          className="btn-accent"
+          className="btn-primary btn-lg"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Nuevo profesional
@@ -77,20 +77,20 @@ export default function AdminProfessionals() {
         />
       )}
 
-      <ul className="space-y-2.5">
+      <ul className="divide-y divide-sand-200 overflow-hidden rounded-2xl border border-sand-200 bg-white">
         {lista.map((p) => (
-          <li key={p.id} className={`card flex flex-wrap items-center gap-4 p-4 sm:p-4 ${p.active ? '' : 'opacity-60'}`}>
+          <li key={p.id} className={`flex flex-wrap items-center gap-4 p-4 sm:p-5 ${p.active ? '' : 'opacity-60'}`}>
             <div className="min-w-[10rem] flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-sand-900">{p.name}</span>
                 {!p.active && <span className="chip bg-sand-100 text-sand-600">Dado de baja</span>}
               </div>
-              <p className="mt-0.5 text-sm text-sand-500">
+              <p className="mt-0.5 text-sm text-sand-700">
                 {p.specialties.length > 0 ? p.specialties.join(' · ') : 'Sin especialidades cargadas'}
               </p>
             </div>
 
-            <span className="text-xs text-sand-500">Turnos cada {p.slotIntervalMin} min</span>
+            <span className="text-sm text-sand-700">Turnos cada {p.slotIntervalMin} min</span>
 
             <div className="flex gap-1">
               <button type="button" onClick={() => setHorariosDe(p)} className="btn-outline px-3 py-2">
@@ -104,7 +104,7 @@ export default function AdminProfessionals() {
                   setAbierto(true)
                 }}
                 aria-label={`Editar ${p.name}`}
-                className="btn-ghost px-2.5"
+                className="btn-ghost min-w-[44px] px-3"
               >
                 <Pencil className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -112,7 +112,7 @@ export default function AdminProfessionals() {
                 type="button"
                 onClick={() => cambiarEstado(p)}
                 aria-label={p.active ? `Dar de baja ${p.name}` : `Reactivar ${p.name}`}
-                className={p.active ? 'btn-ghost px-2.5 text-rose-700' : 'btn-ghost px-2.5 text-emerald-700'}
+                className={p.active ? 'btn-ghost min-w-[44px] px-3 text-rose-700' : 'btn-ghost min-w-[44px] px-3 text-emerald-700'}
               >
                 {p.active ? (
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -342,7 +342,7 @@ function WorkingHoursModal({ profesional, onClose }) {
                     type="checkbox"
                     checked={activo}
                     onChange={() => toggleDia(d.id)}
-                    className="h-4 w-4 cursor-pointer rounded border-sand-300 text-primary-700 focus:ring-primary-500"
+                    className="h-5 w-5 cursor-pointer rounded border-edge accent-primary-700"
                   />
                   {d.label}
                 </label>
@@ -356,7 +356,7 @@ function WorkingHoursModal({ profesional, onClose }) {
                       value={dias[d.id].start}
                       onChange={(e) => setHora(d.id, 'start', e.target.value)}
                     />
-                    <span className="text-sand-400">a</span>
+                    <span className="text-sand-600">a</span>
                     <input
                       type="time"
                       aria-label={`Hora de salida, ${d.label}`}
@@ -366,11 +366,11 @@ function WorkingHoursModal({ profesional, onClose }) {
                     />
                   </div>
                 ) : (
-                  <span className="text-sm text-sand-400">No atiende</span>
+                  <span className="text-sm text-sand-600">No atiende</span>
                 )}
 
                 {malRango && (
-                  <span role="alert" className="text-xs font-medium text-rose-700">
+                  <span role="alert" className="text-sm font-medium text-rose-700">
                     La salida tiene que ser después de la entrada.
                   </span>
                 )}
@@ -380,7 +380,7 @@ function WorkingHoursModal({ profesional, onClose }) {
         </div>
       )}
 
-      <p className="mt-4 rounded-xl bg-accent-50 px-3.5 py-2.5 text-xs text-accent-900">
+      <p className="mt-4 rounded-xl bg-accent-50 px-3.5 py-2.5 text-sm text-accent-900">
         Cambiar los horarios no mueve las citas ya agendadas. Si achicás un día, las que
         queden fuera del rango siguen en la agenda y hay que reprogramarlas a mano.
       </p>

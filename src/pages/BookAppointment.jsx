@@ -134,8 +134,8 @@ export default function BookAppointment() {
         notes: notes.trim(),
         durationMin: totalDuration,
       })
-      toast.success('¡Cita reservada!')
-      navigate('/mis-citas', { replace: true })
+      // Sin aviso festivo: se llega a «Mis citas», donde la cita nueva ya está, con un mensaje fijo que explica qué sigue.
+      navigate('/mis-citas', { replace: true, state: { reservada: true } })
     } catch (err) {
       toast.error(err.message)
       // El horario pudo ocuparse mientras confirmaba: vuelve a elegir hora
@@ -153,22 +153,22 @@ export default function BookAppointment() {
       <div>
         <Link
           to="/dashboard"
-          className="inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-sand-600 transition-colors hover:text-primary-800"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg text-sm font-medium text-sand-700 transition-colors hover:text-primary-800"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Volver al inicio
         </Link>
-        <h1 className="mt-2 font-display text-2xl font-extrabold text-sand-900 sm:text-3xl">Nueva cita</h1>
+        <h1 className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">Nueva cita</h1>
       </div>
 
-      <div className="card">
+      <div className="border-b border-sand-300 pb-3">
         <StepIndicator steps={STEPS} current={step} onStepClick={setStep} />
       </div>
 
-      <div className="card animate-fade-in">
+      <div key={step} className="animate-fade-in">
         <header className="mb-5">
-          <h2 className="font-display text-lg font-bold text-sand-900">{STEP_TITLES[step].title}</h2>
-          <p className="mt-0.5 text-sm text-sand-500">{STEP_TITLES[step].hint}</p>
+          <h2 className="font-display text-2xl font-bold">{STEP_TITLES[step].title}</h2>
+          <p className="mt-1 text-base text-sand-700">{STEP_TITLES[step].hint}</p>
         </header>
 
         {step === 0 && (
@@ -233,7 +233,7 @@ export default function BookAppointment() {
       </div>
 
       {/* Barra de acción fija */}
-      <div className="sticky bottom-0 -mx-4 border-t border-sand-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-2xl lg:border lg:px-5">
+      <div className="sticky bottom-0 z-30 -mx-4 border-t border-sand-300 bg-white px-4 py-3 shadow-soft sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-2xl lg:border lg:px-5">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             {serviceIds.length > 0 ? (
@@ -241,7 +241,7 @@ export default function BookAppointment() {
                 <p className="truncate text-sm font-semibold text-sand-900">
                   {selectedServices.map((s) => s.name).join(' + ')}
                 </p>
-                <p className="text-xs tabular text-sand-500">
+                <p className="text-sm tabular text-sand-700">
                   {formatDuration(totalDuration)}
                   {subscriptionId
                     ? ' · con tu plan'
@@ -252,7 +252,7 @@ export default function BookAppointment() {
                 </p>
               </>
             ) : (
-              <p className="text-sm text-sand-500">Elegí un servicio para empezar</p>
+              <p className="text-base text-sand-700">Elegí un servicio para empezar</p>
             )}
           </div>
 
@@ -280,8 +280,8 @@ export default function BookAppointment() {
       </div>
 
       {step === 0 && serviceIds.length === 0 && (
-        <p className="flex items-center justify-center gap-1.5 text-xs text-sand-500">
-          <CalendarCheck className="h-3.5 w-3.5" aria-hidden="true" />
+        <p className="flex items-center justify-center gap-2 text-sm text-sand-700">
+          <CalendarCheck className="h-4 w-4" aria-hidden="true" />
           Podés combinar varios servicios en una sola cita
         </p>
       )}

@@ -92,7 +92,7 @@ export default function RescheduleModal({ cita, onClose, onDone }) {
               </span>{' '}
               · {cita.professionalName}
             </p>
-            <p className="mt-0.5 text-xs text-sand-500">Dura {formatDuration(cita.durationMin)}</p>
+            <p className="mt-0.5 text-sm text-sand-700">Dura {formatDuration(cita.durationMin)}</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -171,7 +171,7 @@ export default function RescheduleModal({ cita, onClose, onDone }) {
             </p>
           )}
 
-          <p className="rounded-xl bg-accent-50 px-3.5 py-2.5 text-xs text-accent-900">
+          <p className="rounded-xl bg-accent-50 px-3.5 py-2.5 text-sm text-accent-900">
             Al guardar, al cliente le llega un mail con el nuevo horario.
           </p>
 

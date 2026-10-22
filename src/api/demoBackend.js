@@ -2,6 +2,17 @@ import { buildDemoSeed } from '../data/demoData'
 import { computeDaySlots, soloHorarios } from '../data/slots'
 import { addMinutesToTime } from '../utils/format'
 
+// Cuenta de EQUIPO de ejemplo, solo para recorrer el panel del negocio en modo demo (sin backend). Las acciones que
+// escriben siguen sin estar disponibles: el panel real necesita la base.
+const DEMO_STAFF_EMAIL = 'equipo@agendik.app'
+const demoStaff = (db) => ({
+  id: 'st-demo',
+  tenantId: db.tenant.id,
+  name: 'Rocío Fernández',
+  email: DEMO_STAFF_EMAIL,
+  role: 'owner',
+})
+
 const DB_KEY = 'agendik.demo.db'
 const SESSION_KEY = 'agendik.demo.session'
 
@@ -37,6 +48,10 @@ export const demoBackend = {
   async signIn({ email, password }) {
     await wait()
     const db = load()
+    if (email.trim().toLowerCase() === DEMO_STAFF_EMAIL && password === 'agendik123') {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ staff: true }))
+      return { user: { id: 'u-staff-demo', email: DEMO_STAFF_EMAIL }, client: null, staff: demoStaff(db), tenant: db.tenant }
+    }
     const user = db.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
     if (!user || user.password !== password) {
       throw new Error('Email o contraseña incorrectos.')
@@ -77,8 +92,11 @@ export const demoBackend = {
     const raw = localStorage.getItem(SESSION_KEY)
     if (!raw) return null
     try {
-      const { userId } = JSON.parse(raw)
+      const { userId, staff } = JSON.parse(raw)
       const db = load()
+      if (staff) {
+        return { user: { id: 'u-staff-demo', email: DEMO_STAFF_EMAIL }, client: null, staff: demoStaff(db), tenant: db.tenant }
+      }
       const user = db.users.find((u) => u.id === userId)
       if (!user) return null
       const client = db.clients.find((c) => c.userId === user.id)
@@ -107,12 +125,12 @@ export const demoBackend = {
 
   async getServices() {
     await wait(160)
-    return load().services
+    return load().services.map((s) => ({ active: true, capacity: 1, ...s }))
   },
 
   async getProfessionals() {
     await wait(160)
-    return load().professionals
+    return load().professionals.map((p) => ({ active: true, ...p }))
   },
 
   async getPackages(clientId) {
@@ -311,12 +329,60 @@ export const demoBackend = {
   // El panel del negocio necesita backend real: en modo demo no hay equipo
   // ni datos de otros clientes que mostrar. Se responde vacío en vez de
   // romper, para que la app siga navegable sin Supabase.
-  async getAgenda() {
-    return []
+  async getAgenda({ from, to } = {}) {
+    await wait()
+    const db = load()
+    const hoy = new Date()
+    const dia = (n) => {
+      const d = new Date(hoy)
+      d.setDate(d.getDate() + n)
+      // Fecha local (no UTC): si no, de noche el «hoy» de la demo cae un día corrido.
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+    const nombre = (id) => db.professionals.find((p) => p.id === id)?.name || 'Por asignar'
+    const filas = db.appointments.map((a) => {
+      const c = db.clients.find((x) => x.id === a.clientId)
+      const servicios = a.serviceIds.map((id) => db.services.find((s) => s.id === id)).filter(Boolean)
+      return {
+        id: a.id, date: a.date, startTime: a.startTime, endTime: a.endTime, durationMin: a.durationMin, status: a.status,
+        notes: a.notes || '', source: a.source, clientId: a.clientId, clientName: c?.name || 'Cliente', clientPhone: c?.phone || '',
+        clientEmail: c?.email || '', professionalId: a.professionalId, professionalName: nombre(a.professionalId), slotCapacity: 1,
+        servicesLabel: servicios.map((s) => s.name).join(' + '), totalPrice: servicios.reduce((n, s) => n + s.price, 0),
+      }
+    })
+    const ejemplo = [
+      ['x1', 0, '09:00', '10:00', 'reserved', 'Sofía Ramírez', '+595 983 000 111', 'p1', 'Limpieza Facial Profunda', 180000],
+      ['x2', 0, '10:30', '11:30', 'confirmed', 'Paula Acosta', '+595 981 000 222', 'p4', 'Masaje Relajante', 200000],
+      ['x3', 0, '15:00', '15:45', 'reserved', 'Marta Vera', '', 'p3', 'Manicura Spa', 90000],
+      ['x4', 1, '11:00', '12:30', 'confirmed', 'Julia Benítez', '+595 982 000 333', 'p2', 'Drenaje Linfático', 280000],
+      ['x5', 2, '16:00', '17:00', 'cancelled', 'Lucía Montiel', '+595 985 000 444', 'p1', 'Peeling Ultrasónico', 220000],
+    ].map(([id, n, startTime, endTime, status, clientName, clientPhone, professionalId, servicesLabel, totalPrice]) => ({
+      id, date: dia(n), startTime, endTime, durationMin: 60, status, notes: '', source: 'whatsapp', clientId: `cx-${id}`, clientName,
+      clientPhone, clientEmail: '', professionalId, professionalName: nombre(professionalId), slotCapacity: 1, servicesLabel, totalPrice,
+    }))
+    return [...filas, ...ejemplo]
+      .filter((c) => (!from || c.date >= from) && (!to || c.date <= to))
+      .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`))
   },
 
   async getAdminClients() {
-    return []
+    await wait()
+    const db = load()
+    const propios = db.clients.map((c) => ({
+      ...c,
+      appointments: db.appointments.filter((a) => a.clientId === c.id && a.status !== 'cancelled').length,
+      upcoming: db.appointments.filter((a) => a.clientId === c.id && ['reserved', 'confirmed'].includes(a.status)).length,
+    }))
+    const ejemplo = [
+      ['Sofía Ramírez', 'sofia@correo.com', '+595 983 000 111', 6, 1, true],
+      ['Paula Acosta', 'paula@correo.com', '+595 981 000 222', 3, 1, true],
+      ['Marta Vera', 'marta@correo.com', '+595 981 000 333', 1, 1, false],
+      ['Julia Benítez', 'julia@correo.com', '+595 982 000 333', 9, 1, true],
+    ].map(([name, email, phone, appointments, upcoming, cuenta], i) => ({
+      id: `cx-${i}`, tenantId: db.tenant.id, userId: cuenta ? `ux-${i}` : null, name, email, phone, birthDate: '', gender: '',
+      occupation: '', address: '', status: 'active', appointments, upcoming,
+    }))
+    return [...propios, ...ejemplo].sort((a, b) => a.name.localeCompare(b.name))
   },
 
   async setAppointmentStatus() {
@@ -356,7 +422,14 @@ export const demoBackend = {
   },
 
   async getPlans() {
-    return []
+    await wait()
+    const db = load()
+    const ids = db.services.slice(0, 3).map((s) => s.id)
+    return [
+      { id: 'pl1', tenantId: db.tenant.id, name: 'Plan facial mensual', usesPerPeriod: 4, price: 520000, active: true, serviceIds: ids },
+      { id: 'pl2', tenantId: db.tenant.id, name: 'Plan relax', usesPerPeriod: 8, price: 1100000, active: true, serviceIds: ids.slice(1) },
+      { id: 'pl3', tenantId: db.tenant.id, name: 'Plan de prueba', usesPerPeriod: 2, price: 200000, active: false, serviceIds: ids.slice(0, 1) },
+    ]
   },
 
   async savePlan() {
