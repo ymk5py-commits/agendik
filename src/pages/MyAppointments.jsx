@@ -43,6 +43,8 @@ export default function MyAppointments() {
 
   const handleCancelled = (updated) => {
     appointments.setData((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
+    // «Tu cita quedó reservada» deja de ser cierto si la cancelan desde acá.
+    setAvisoReserva(false)
   }
 
   return (
